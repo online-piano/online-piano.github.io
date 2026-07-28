@@ -1,65 +1,219 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect, useRef } from 'react';
+import { usePiano } from '@/hooks/usePiano';
+import PianoKeyboard from '@/components/PianoKeyboard';
+import PedalPanel from '@/components/PedalPanel';
+import RecordingControls from '@/components/RecordingControls';
+
+const NOTES: Record<string, number> = {
+  'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81,
+  'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00,
+  'A#3': 233.08, 'B3': 246.94,
+  'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63,
+  'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00,
+  'A#4': 466.16, 'B4': 493.88,
+  'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25,
+  'F5': 698.46, 'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.00,
+  'A#5': 932.33, 'B5': 987.77,
+  'C6': 1046.50, 'C#6': 1108.73, 'D6': 1174.66, 'D#6': 1244.51, 'E6': 1318.51,
+  'F6': 1396.91, 'F#6': 1479.98, 'G6': 1567.98, 'G#6': 1661.22, 'A6': 1760.00,
+  'A#6': 1864.66, 'B6': 1975.53
+};
+
+const KEY_MAP: Record<string, string> = {
+  'z': 'C4', 'x': 'D4', 'c': 'E4', 'v': 'F4', 'b': 'G4', 'n': 'A4', 'm': 'B4',
+  'q': 'C5', 'w': 'D5', 'e': 'E5', 'r': 'F5', 't': 'G5', 'y': 'A5', 'u': 'B5',
+  's': 'C#4', 'd': 'D#4', 'g': 'F#4', 'h': 'G#4', 'j': 'A#4',
+  '1': 'C#5', '2': 'D#5', '5': 'F#5', '6': 'G#5', '7': 'A#5'
+};
+
+// 根据八度动态生成键盘映射
+function buildKeyMap(octave: number): Record<string, string> {
+  const o = octave;
+  return {
+    'z': `C${o}`, 'x': `D${o}`, 'c': `E${o}`, 'v': `F${o}`,
+    'b': `G${o}`, 'n': `A${o}`, 'm': `B${o}`,
+    'q': `C${o+1}`, 'w': `D${o+1}`, 'e': `E${o+1}`, 'r': `F${o+1}`,
+    't': `G${o+1}`, 'y': `A${o+1}`, 'u': `B${o+1}`,
+    's': `C#${o}`, 'd': `D#${o}`, 'g': `F#${o}`, 'h': `G#${o}`, 'j': `A#${o}`,
+    '1': `C#${o+1}`, '2': `D#${o+1}`, '5': `F#${o+1}`, '6': `G#${o+1}`, '7': `A#${o+1}`,
+  };
+}
+
+export default function PianoPage() {
+  const piano = usePiano();
+  const [volume, setVolume] = useState(30);
+  const [currentOctave, setCurrentOctave] = useState(4);
+  const [sustainActive, setSustainActive] = useState(true);
+  const [softActive, setSoftActive] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [canPlayback, setCanPlayback] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const stopPlaybackRef = useRef<(() => void) | null>(null);
+  const [keyboardPressed, setKeyboardPressed] = useState<Set<string>>(new Set());
+  const [playbackNotes, setPlaybackNotes] = useState<Set<string>>(new Set());
+  const allExternalNotes = new Set([...keyboardPressed, ...playbackNotes]);
+
+  // 设置键盘快捷键（随八度动态变化）
+  useEffect(() => {
+    if (!piano.audioContext) return;
+    const keyMap = buildKeyMap(currentOctave);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (keyMap[key]) {
+        if (e.repeat) return; // 防止长按时重复触发
+        e.preventDefault();
+        const note = keyMap[key];
+        const frequency = NOTES[note as keyof typeof NOTES];
+        if (!frequency) return;
+        piano.playNote(note, frequency);
+        setKeyboardPressed(prev => new Set(prev).add(note));
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (keyMap[key]) {
+        e.preventDefault();
+        const note = keyMap[key];
+        piano.stopNote(note);
+        setKeyboardPressed(prev => { const s = new Set(prev); s.delete(note); return s; });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [piano, currentOctave]);
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value);
+    setVolume(val);
+    piano.updateVolume(val);
+  };
+
+  const handleRecordClick = () => {
+    if (!isRecording) {
+      piano.startRecording();
+      setIsRecording(true);
+    } else {
+      piano.stopRecording();
+      setIsRecording(false);
+      setCanPlayback(piano.recordedNotes.length > 0);
+    }
+  };
+
+  const handleSustainClick = () => {
+    const newState = piano.toggleSustainPedal();
+    setSustainActive(newState);
+  };
+
+  const handleSoftClick = () => {
+    const newState = piano.toggleSoftPedal();
+    setSoftActive(newState);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen bg-gradient-to-br from-purple-400 via-purple-500 to-pink-500 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl p-8 sm:p-12">
+        {/* 标题 */}
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold text-gray-800 mb-2">🎹 在线钢琴</h1>
+          <p className="text-gray-600 text-lg">用键盘或点击钢琴键来弹奏</p>
+        </div>
+
+        {/* 控制面板 */}
+        <div className="flex flex-wrap justify-center gap-8 mb-8">
+          {/* 音量控制 */}
+          <div className="flex items-center gap-3">
+            <label className="font-semibold text-gray-700">音量:</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={volume}
+              onChange={handleVolumeChange}
+              className="w-32 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+            />
+            <span className="text-gray-700 font-semibold min-w-12">{volume}%</span>
+          </div>
+
+          {/* 八度控制 */}
+          <div className="flex items-center gap-3">
+            <label className="font-semibold text-gray-700">八度:</label>
+            <button
+              onClick={() => setCurrentOctave(Math.max(2, currentOctave - 1))}
+              className="px-4 py-2 border-2 border-purple-500 text-purple-500 rounded-lg hover:bg-purple-500 hover:text-white transition"
+            >
+              -
+            </button>
+            <span className="text-gray-700 font-semibold min-w-8 text-center">{currentOctave}</span>
+            <button
+              onClick={() => setCurrentOctave(Math.min(6, currentOctave + 1))}
+              className="px-4 py-2 border-2 border-purple-500 text-purple-500 rounded-lg hover:bg-purple-500 hover:text-white transition"
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        {/* 录音控制按钮 */}
+        <RecordingControls
+          isRecording={isRecording}
+          canPlayback={canPlayback}
+          isPlaying={isPlaying}
+          onRecord={handleRecordClick}
+          onPlayback={() => {
+            if (isPlaying) {
+              stopPlaybackRef.current?.();
+              return;
+            }
+            setIsPlaying(true);
+            setPlaybackNotes(new Set());
+            const cancel = piano.playRecording(
+              (note) => setPlaybackNotes(prev => new Set(prev).add(note)),
+              (note) => setPlaybackNotes(prev => { const s = new Set(prev); s.delete(note); return s; }),
+              () => { setIsPlaying(false); setPlaybackNotes(new Set()); }
+            );
+            stopPlaybackRef.current = cancel;
+          }}
+          onDownload={() => piano.downloadRecording()}
+          onClear={() => { piano.clearRecording(); setCanPlayback(false); }}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+        {/* 钢琴键盘 */}
+        <PianoKeyboard piano={piano} octave={currentOctave} notes={NOTES} externalPressedKeys={allExternalNotes} />
+
+        {/* 脚踏板 */}
+        <PedalPanel
+          sustainActive={sustainActive}
+          softActive={softActive}
+          onSustainClick={handleSustainClick}
+          onSoftClick={handleSoftClick}
+        />
+
+        {/* 键盘指南 */}
+        <div className="mt-8 bg-blue-50 p-6 rounded-lg border-l-4 border-blue-500">
+          <p className="font-bold text-blue-900 mb-2">键盘快捷键（钢琴键位布局）：</p>
+          <p className="text-gray-700 font-mono text-sm">
+            <strong>白键：</strong> Z X C V B N M (低八度) | Q W E R T Y U (高八度)
+          </p>
+          <p className="text-gray-700 font-mono text-sm mt-1">
+            <strong>黑键：</strong> S D (在C-D之间) | G H J (在F-G-A之间) | 1 2 (在C-D之间) | 5 6 7 (在F-G-A之间)
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* 页脚 */}
+        <div className="mt-8 text-center text-gray-500 text-sm border-t pt-6">
+          <p>使用 Web Audio API 实现的虚拟钢琴 | Next.js + React + TypeScript</p>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
