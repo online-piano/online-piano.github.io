@@ -5,6 +5,7 @@ import { usePiano } from '@/hooks/usePiano';
 import PianoKeyboard from '@/components/PianoKeyboard';
 import PedalPanel from '@/components/PedalPanel';
 import RecordingControls from '@/components/RecordingControls';
+import DemoSongs from '@/components/DemoSongs';
 
 const NOTES: Record<string, number> = {
   'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81,
@@ -34,10 +35,13 @@ function buildKeyMap(octave: number): Record<string, string> {
   return {
     'z': `C${o}`, 'x': `D${o}`, 'c': `E${o}`, 'v': `F${o}`,
     'b': `G${o}`, 'n': `A${o}`, 'm': `B${o}`,
-    'q': `C${o+1}`, 'w': `D${o+1}`, 'e': `E${o+1}`, 'r': `F${o+1}`,
+    ',': `C${o+1}`, '.': `D${o+1}`, '/': `E${o+1}`, 'r': `F${o+1}`,
     't': `G${o+1}`, 'y': `A${o+1}`, 'u': `B${o+1}`,
+    'i': `C${o+2}`, 'o': `D${o+2}`, 'p': `E${o+2}`, '[': `F${o+2}`,
+    ']': `G${o+2}`, ';': `A${o+2}`, '\\': `B${o+2}`,
     's': `C#${o}`, 'd': `D#${o}`, 'g': `F#${o}`, 'h': `G#${o}`, 'j': `A#${o}`,
-    '1': `C#${o+1}`, '2': `D#${o+1}`, '5': `F#${o+1}`, '6': `G#${o+1}`, '7': `A#${o+1}`,
+    'l': `C#${o+1}`, '`': `D#${o+1}`, '6': `F#${o+1}`, '7': `G#${o+1}`, '8': `A#${o+1}`,
+    '9': `C#${o+2}`, '0': `D#${o+2}`, '-': `F#${o+2}`, '=': `G#${o+2}`, '2': `A#${o+2}`,
   };
 }
 
@@ -45,14 +49,17 @@ export default function PianoPage() {
   const piano = usePiano();
   const [volume, setVolume] = useState(30);
   const [currentOctave, setCurrentOctave] = useState(4);
-  const [sustainActive, setSustainActive] = useState(true);
+  const [sustainActive, setSustainActive] = useState(false);
   const [softActive, setSoftActive] = useState(false);
+  const [centerPedalActive, setCenterPedalActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [canPlayback, setCanPlayback] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const stopPlaybackRef = useRef<(() => void) | null>(null);
   const [keyboardPressed, setKeyboardPressed] = useState<Set<string>>(new Set());
   const [playbackNotes, setPlaybackNotes] = useState<Set<string>>(new Set());
+  const [isSongPlaying, setIsSongPlaying] = useState(false);
+  const stopSongRef = useRef<(() => void) | null>(null);
   const allExternalNotes = new Set([...keyboardPressed, ...playbackNotes]);
 
   // 设置键盘快捷键（随八度动态变化）
@@ -64,7 +71,6 @@ export default function PianoPage() {
       const key = e.key.toLowerCase();
       if (keyMap[key]) {
         if (e.repeat) return; // 防止长按时重复触发
-        e.preventDefault();
         const note = keyMap[key];
         const frequency = NOTES[note as keyof typeof NOTES];
         if (!frequency) return;
@@ -76,7 +82,6 @@ export default function PianoPage() {
     const handleKeyUp = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       if (keyMap[key]) {
-        e.preventDefault();
         const note = keyMap[key];
         piano.stopNote(note);
         setKeyboardPressed(prev => { const s = new Set(prev); s.delete(note); return s; });
@@ -119,9 +124,34 @@ export default function PianoPage() {
     setSoftActive(newState);
   };
 
+  const handleCenterPedalClick = () => {
+    setCenterPedalActive(!centerPedalActive);
+    // 中踏板功能可在future中扩展
+  };
+
+  const handlePlaySong = (notes: Array<{ note: string; duration: number }>) => {
+    if (isSongPlaying) {
+      stopSongRef.current?.();
+      setIsSongPlaying(false);
+      return;
+    }
+    
+    setIsSongPlaying(true);
+    const cancel = piano.playSongSequence(
+      notes,
+      (note) => setPlaybackNotes(prev => new Set(prev).add(note)),
+      (note) => setPlaybackNotes(prev => { const s = new Set(prev); s.delete(note); return s; }),
+      () => {
+        setIsSongPlaying(false);
+        setPlaybackNotes(new Set());
+      }
+    );
+    stopSongRef.current = cancel;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-purple-500 to-pink-500 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl p-8 sm:p-12">
+      <div className="w-full max-w-7xl bg-white rounded-3xl shadow-2xl p-8 sm:p-12">
         {/* 标题 */}
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-gray-800 mb-2">🎹 在线钢琴</h1>
@@ -194,18 +224,23 @@ export default function PianoPage() {
         <PedalPanel
           sustainActive={sustainActive}
           softActive={softActive}
+          centerPedalActive={centerPedalActive}
           onSustainClick={handleSustainClick}
           onSoftClick={handleSoftClick}
+          onCenterPedalClick={handleCenterPedalClick}
         />
+
+        {/* 名曲演奏库 */}
+        <DemoSongs onPlaySong={handlePlaySong} isPlaying={isSongPlaying} />
 
         {/* 键盘指南 */}
         <div className="mt-8 bg-blue-50 p-6 rounded-lg border-l-4 border-blue-500">
           <p className="font-bold text-blue-900 mb-2">键盘快捷键（钢琴键位布局）：</p>
           <p className="text-gray-700 font-mono text-sm">
-            <strong>白键：</strong> Z X C V B N M (低八度) | Q W E R T Y U (高八度)
+            <strong>白键：</strong> Z X C V B N M | , . / R T Y U | I O P [ ] ; \
           </p>
           <p className="text-gray-700 font-mono text-sm mt-1">
-            <strong>黑键：</strong> S D (在C-D之间) | G H J (在F-G-A之间) | 1 2 (在C-D之间) | 5 6 7 (在F-G-A之间)
+            <strong>黑键：</strong> S D | G H J | L ` | 6 7 8 | 9 0 | - = 2
           </p>
         </div>
 

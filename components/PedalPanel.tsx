@@ -3,15 +3,19 @@
 interface PedalPanelProps {
   sustainActive: boolean;
   softActive: boolean;
+  centerPedalActive: boolean;
   onSustainClick: () => void;
   onSoftClick: () => void;
+  onCenterPedalClick: () => void;
 }
 
 export default function PedalPanel({
   sustainActive,
   softActive,
+  centerPedalActive,
   onSustainClick,
-  onSoftClick
+  onSoftClick,
+  onCenterPedalClick
 }: PedalPanelProps) {
   return (
     <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-6 mt-8 border-2 border-gray-600">
@@ -34,7 +38,12 @@ export default function PedalPanel({
 
         {/* 中踏板 */}
         <button
-          className="w-20 h-16 rounded-t-lg border-4 border-gray-700 bg-gradient-to-b from-gray-400 to-gray-600 text-gray-800 transition-all duration-75 flex flex-col items-center justify-center text-xs font-bold shadow-lg hover:-translate-y-1"
+          onClick={onCenterPedalClick}
+          className={`w-20 h-16 rounded-t-lg border-4 border-t-2 border-b-4 transition-all duration-75 flex flex-col items-center justify-center text-xs font-bold ${
+            centerPedalActive
+              ? 'bg-gradient-to-b from-blue-400 to-blue-600 text-white border-blue-800 transform translate-y-1 shadow-inner'
+              : 'bg-gradient-to-b from-gray-400 to-gray-600 text-gray-800 border-gray-700 shadow-lg hover:-translate-y-1'
+          }`}
         >
           ⫶ 中踏板
         </button>

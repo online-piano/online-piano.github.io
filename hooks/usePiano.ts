@@ -49,7 +49,11 @@ export function usePiano() {
   
   const sustainPedalRef = useRef(true);
   const softPedalRef = useRef(false);
-  const releasedNotesInSustainRef = useRef<Array<any>>([]);
+  const centerPedalRef = useRef(false);
+  const releasedNotesInSustainRef = useRef<any[]>([]);
+  
+  // 最多同时发音数，防止卡顿
+  const MAX_SIMULTANEOUS_NOTES = 12;
 
   // 初始化 AudioContext
   useEffect(() => {
@@ -120,6 +124,21 @@ export function usePiano() {
     
     if (!audioContext || !masterGain) return;
 
+    // 检查是否超过最大同时音符数，如果超过则停止最旧的音符
+    if (activeOscillatorsRef.current.size >= MAX_SIMULTANEOUS_NOTES) {
+      let oldestNoteName = '';
+      let oldestTime = Infinity;
+      activeOscillatorsRef.current.forEach((noteData, key) => {
+        if (noteData.startTime < oldestTime) {
+          oldestTime = noteData.startTime;
+          oldestNoteName = key;
+        }
+      });
+      if (oldestNoteName) {
+        performStopNote(oldestNoteName);
+      }
+    }
+
     if (activeOscillatorsRef.current.has(noteName)) {
       performStopNote(noteName, keyElement);
     }
@@ -145,27 +164,31 @@ export function usePiano() {
       });
     }
 
-    // ── 钢琴物理建模合成 ──────────────────────────────────────────    // 钢琴弦的非谐波性系数（模拟弦的刚度，越高音越大）
+    // ── 钢琴物理建模合成（优化版本）──────────────────────────────────────────
+    // 钢琴弦的非谐波性系数（模拟弦的刚度，越高音越大）
     const B = 0.00015 * Math.max(1, frequency / 440);
     // 柔音踏板降低亮度和音量
     const softFactor = softPedalRef.current ? 0.65 : 1.0;
 
-    // 谐波配置：[谐波次数, 峰值振幅, 衰减时间(秒)]
-    // 高次谐波在攻击时更亮但衰减更快，模拟真实钢琴频谱
+    // 简化谐波配置：只保留4个主要谐波（从原来的8个）
+    // [谐波次数, 峰值振幅, 衰减时间(秒)]
     const harmonicConfig: [number, number, number][] = [
       [1,   0.60 * softFactor, 6.0],
       [2,   0.28 * softFactor, 3.5],
       [3,   0.16 * softFactor, 2.0],
       [4,   0.09 * softFactor, 1.3],
-      [5,   0.05 * softFactor, 0.9],
-      [6,   0.03 * softFactor, 0.65],
-      [7,   0.015 * softFactor, 0.45],
-      [8,   0.008 * softFactor, 0.30],
     ];
 
     harmonicConfig.forEach(([n, amp, decayTime]) => {
-      // 非谐波频率：f_n = n * f * sqrt(1 + B*n²)，模拟弦的刚度导致高次谐波略偏高
-      const freqN = frequency * n * Math.sqrt(1 + B * n * n);
+      // 非谐波频率：f_n = n * f * sqrt(1 + B*n²)，但基频（n=1）不应用校正
+      let freqN: number;
+      if (n === 1) {
+        // 基频保持精确值，不应用非谐波校正
+        freqN = frequency;
+      } else {
+        // 只对谐波（n≥2）应用非谐波校正，模拟弦的刚度导致高次谐波略偏高
+        freqN = frequency * n * Math.sqrt(1 + B * n * n);
+      }
       const osc = audioContext.createOscillator();
       osc.type = 'sine';
       osc.frequency.value = freqN;
@@ -182,7 +205,7 @@ export function usePiano() {
       oscillators.push({ osc, gain });
     });
 
-    // 两根略微失谐的"弦"（钢琴每键有2-3根弦，轻微失谐产生拍音/合唱感）
+    // 两根略微失谐的"弦"（保留）
     const detuneRatios = [1 + 0.0012, 1 - 0.0009];
     detuneRatios.forEach(ratio => {
       const osc = audioContext.createOscillator();
@@ -200,8 +223,8 @@ export function usePiano() {
       oscillators.push({ osc, gain });
     });
 
-    // 击弦噪声：短暂的带通噪声模拟琴槌击弦的瞬态
-    const clickDuration = 0.018;
+    // 击弦噪声（简化：减小持续时间）
+    const clickDuration = 0.012; // 从0.018减少到0.012
     const clickBufferSize = Math.ceil(audioContext.sampleRate * clickDuration);
     const clickBuffer = audioContext.createBuffer(1, clickBufferSize, audioContext.sampleRate);
     const clickData = clickBuffer.getChannelData(0);
@@ -427,6 +450,73 @@ export function usePiano() {
     return softPedalRef.current;
   }, []);
 
+  // 播放一个音符序列（用于名曲演奏）
+  const playSongSequence = useCallback((
+    notes: Array<{ note: string; frequency?: number; duration: number }>,
+    onNoteOn?: (note: string) => void,
+    onNoteOff?: (note: string) => void,
+    onFinish?: () => void
+  ) => {
+    const audioContext = audioContextRef.current;
+    if (!audioContext) return () => {};
+
+    let isPlaying = true;
+    let currentTime = 0;
+    const timerId: any[] = [];
+
+    const playNextNote = (index: number) => {
+      if (index >= notes.length || !isPlaying) {
+        if (index >= notes.length && onFinish) {
+          onFinish();
+        }
+        return;
+      }
+
+      const { note, frequency: freq, duration } = notes[index];
+      
+      // 从NOTES对象中查找频率
+      let frequency = freq || NOTES[note as keyof typeof NOTES];
+      if (!frequency) {
+        // 如果音符不在标准列表中，跳过
+        playNextNote(index + 1);
+        return;
+      }
+
+      // 触发按键按下回调
+      if (onNoteOn) onNoteOn(note);
+
+      // 播放当前音符
+      playNote(note, frequency);
+
+      // 设置在duration时间后停止该音符
+      const stopTimer = setTimeout(() => {
+        stopNote(note);
+        // 立即触发按键释放回调（实时反馈）
+        if (onNoteOff) onNoteOff(note);
+        // 小延迟后播放下一个音符（给UI回弹动画时间）
+        setTimeout(() => {
+          playNextNote(index + 1);
+        }, 10);
+      }, duration * 1000);
+
+      timerId.push(stopTimer);
+    };
+
+    // 开始播放
+    playNextNote(0);
+
+    // 返回取消函数
+    return () => {
+      isPlaying = false;
+      timerId.forEach(id => clearTimeout(id));
+      notes.forEach(({ note }) => {
+        stopNote(note);
+        if (onNoteOff) onNoteOff(note);
+      });
+      if (onFinish) onFinish();
+    };
+  }, [playNote, stopNote]);
+
   return {
     audioContext: audioContextRef.current,
     playNote,
@@ -437,6 +527,7 @@ export function usePiano() {
     clearRecording,
     playRecording,
     downloadRecording,
+    playSongSequence,
     toggleSustainPedal,
     toggleSoftPedal,
     recordedNotes: recordedNotesRef.current,

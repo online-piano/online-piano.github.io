@@ -15,11 +15,13 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
 
   const octaveWhiteShortcuts: Record<number, string[]> = {
     [octave]:     ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
-    [octave + 1]: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'],
+    [octave + 1]: [',', '.', '/', 'R', 'T', 'Y', 'U'],
+    [octave + 2]: ['I', 'O', 'P', '[', ']', ';', '\\'],
   };
   const octaveBlackShortcuts: Record<number, string[]> = {
     [octave]:     ['S', 'D', '', 'G', 'H', 'J', ''],
-    [octave + 1]: ['1', '2', '', '5', '6', '7', ''],
+    [octave + 1]: ['L', '`', '', '6', '7', '8', ''],
+    [octave + 2]: ['9', '0', '', '-', '=', '2', ''],
   };
 
   const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -30,7 +32,7 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
   const blackKeyWidth = 28;
   const blackKeyHeight = 115;
   const containerPadding = 16;
-  const octaves = [octave, octave + 1];
+  const octaves = [octave, octave + 1, octave + 2];
   const totalWhiteKeys = octaves.length * noteNames.length;
 
   const pressKey = useCallback((noteName: string, freq: number) => {
