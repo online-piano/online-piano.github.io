@@ -7,9 +7,10 @@ interface PianoKeyboardProps {
   octave: number;
   notes: Record<string, number>;
   externalPressedKeys?: Set<string>;
+  keyboardSize?: 'compact' | 'full';
 }
 
-export default function PianoKeyboard({ piano, octave, notes, externalPressedKeys = new Set() }: PianoKeyboardProps) {
+export default function PianoKeyboard({ piano, octave, notes, externalPressedKeys = new Set(), keyboardSize = 'full' }: PianoKeyboardProps) {
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const allPressedKeys = new Set([...pressedKeys, ...externalPressedKeys]);
 
@@ -32,7 +33,11 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
   const blackKeyWidth = 28;
   const blackKeyHeight = 115;
   const containerPadding = 16;
-  const octaves = [octave, octave + 1, octave + 2];
+  
+  // 根据 keyboardSize 决定显示的八度数量和起始八度
+  const octavesCount = keyboardSize === 'compact' ? 3 : 5;
+  const startOctave = keyboardSize === 'compact' ? octave : 2;  // 88键从C2开始
+  const octaves = Array.from({ length: octavesCount }, (_, i) => startOctave + i);
   const totalWhiteKeys = octaves.length * noteNames.length;
 
   const pressKey = useCallback((noteName: string, freq: number) => {
@@ -62,10 +67,12 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
   return (
     <div style={{
       display: 'flex',
-      justifyContent: 'center',
+      justifyContent: keyboardSize === 'compact' ? 'center' : 'flex-start',
       marginBottom: '30px',
       overflowX: 'auto',
-      padding: '20px 0',
+      paddingTop: '20px',
+      paddingBottom: '20px',
+      width: '100%',
     }}>
       <div style={{
         position: 'relative',
@@ -73,6 +80,8 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
         height: whiteKeyHeight + containerPadding * 2,
         background: '#2a2a2a',
         padding: `${containerPadding}px`,
+        marginLeft: '10px',
+        marginRight: '10px',
         borderRadius: '12px',
         boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
         flexShrink: 0,

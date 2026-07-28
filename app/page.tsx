@@ -8,6 +8,9 @@ import RecordingControls from '@/components/RecordingControls';
 import DemoSongs from '@/components/DemoSongs';
 
 const NOTES: Record<string, number> = {
+  'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41,
+  'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.00,
+  'A#2': 116.54, 'B2': 123.47,
   'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81,
   'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00,
   'A#3': 233.08, 'B3': 246.94,
@@ -19,7 +22,11 @@ const NOTES: Record<string, number> = {
   'A#5': 932.33, 'B5': 987.77,
   'C6': 1046.50, 'C#6': 1108.73, 'D6': 1174.66, 'D#6': 1244.51, 'E6': 1318.51,
   'F6': 1396.91, 'F#6': 1479.98, 'G6': 1567.98, 'G#6': 1661.22, 'A6': 1760.00,
-  'A#6': 1864.66, 'B6': 1975.53
+  'A#6': 1864.66, 'B6': 1975.53,
+  'C7': 2093.00, 'C#7': 2217.46, 'D7': 2349.32, 'D#7': 2489.02, 'E7': 2637.02,
+  'F7': 2793.83, 'F#7': 2959.96, 'G7': 3135.96, 'G#7': 3322.44, 'A7': 3520.00,
+  'A#7': 3729.31, 'B7': 3951.07,
+  'C8': 4186.01
 };
 
 const KEY_MAP: Record<string, string> = {
@@ -49,6 +56,7 @@ export default function PianoPage() {
   const piano = usePiano();
   const [volume, setVolume] = useState(30);
   const [currentOctave, setCurrentOctave] = useState(4);
+  const [keyboardSize, setKeyboardSize] = useState<'compact' | 'full'>('full');
   const [sustainActive, setSustainActive] = useState(false);
   const [softActive, setSoftActive] = useState(false);
   const [centerPedalActive, setCenterPedalActive] = useState(false);
@@ -151,7 +159,7 @@ export default function PianoPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-400 via-purple-500 to-pink-500 flex items-center justify-center p-4">
-      <div className="w-full max-w-7xl bg-white rounded-3xl shadow-2xl p-8 sm:p-12">
+      <div className="w-full bg-white rounded-3xl shadow-2xl p-8 sm:p-12" style={{ maxWidth: '100%' }}>
         {/* 标题 */}
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-gray-800 mb-2">🎹 在线钢琴</h1>
@@ -191,6 +199,31 @@ export default function PianoPage() {
               +
             </button>
           </div>
+
+          {/* 键盘大小切换 */}
+          <div className="flex items-center gap-3">
+            <label className="font-semibold text-gray-700">键盘:</label>
+            <button
+              onClick={() => setKeyboardSize('compact')}
+              className={`px-4 py-2 border-2 rounded-lg transition ${
+                keyboardSize === 'compact'
+                  ? 'border-blue-500 bg-blue-500 text-white'
+                  : 'border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white'
+              }`}
+            >
+              21键
+            </button>
+            <button
+              onClick={() => setKeyboardSize('full')}
+              className={`px-4 py-2 border-2 rounded-lg transition ${
+                keyboardSize === 'full'
+                  ? 'border-blue-500 bg-blue-500 text-white'
+                  : 'border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white'
+              }`}
+            >
+              88键
+            </button>
+          </div>
         </div>
 
         {/* 录音控制按钮 */}
@@ -218,7 +251,7 @@ export default function PianoPage() {
         />
 
         {/* 钢琴键盘 */}
-        <PianoKeyboard piano={piano} octave={currentOctave} notes={NOTES} externalPressedKeys={allExternalNotes} />
+        <PianoKeyboard piano={piano} octave={currentOctave} notes={NOTES} externalPressedKeys={allExternalNotes} keyboardSize={keyboardSize} />
 
         {/* 脚踏板 */}
         <PedalPanel
