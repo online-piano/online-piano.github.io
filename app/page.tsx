@@ -137,7 +137,7 @@ export default function PianoPage() {
     // 中踏板功能可在future中扩展
   };
 
-  const handlePlaySong = (notes: Array<{ note: string; duration: number }>) => {
+  const handlePlaySong = (notes: Array<{ note: string | string[]; duration: number }>) => {
     if (isSongPlaying) {
       stopSongRef.current?.();
       setIsSongPlaying(false);
