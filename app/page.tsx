@@ -250,9 +250,6 @@ export default function PianoPage() {
           onClear={() => { piano.clearRecording(); setCanPlayback(false); }}
         />
 
-        {/* 钢琴键盘 */}
-        <PianoKeyboard piano={piano} octave={currentOctave} notes={NOTES} externalPressedKeys={allExternalNotes} keyboardSize={keyboardSize} />
-
         {/* 脚踏板 */}
         <PedalPanel
           sustainActive={sustainActive}
@@ -262,6 +259,9 @@ export default function PianoPage() {
           onSoftClick={handleSoftClick}
           onCenterPedalClick={handleCenterPedalClick}
         />
+
+        {/* 钢琴键盘 */}
+        <PianoKeyboard piano={piano} octave={currentOctave} notes={NOTES} externalPressedKeys={allExternalNotes} keyboardSize={keyboardSize} />
 
         {/* 名曲演奏库 */}
         <DemoSongs onPlaySong={handlePlaySong} isPlaying={isSongPlaying} />

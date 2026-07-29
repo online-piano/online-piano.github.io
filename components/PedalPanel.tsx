@@ -17,55 +17,48 @@ export default function PedalPanel({
   onSoftClick,
   onCenterPedalClick
 }: PedalPanelProps) {
+  const pedals = [
+    {
+      label: '柔音',
+      icon: '♪',
+      active: softActive,
+      onClick: onSoftClick,
+    },
+    {
+      label: '中踏板',
+      icon: '⫶',
+      active: centerPedalActive,
+      onClick: onCenterPedalClick,
+    },
+    {
+      label: '延音',
+      icon: '⊡',
+      active: sustainActive,
+      onClick: onSustainClick,
+    },
+  ];
+
   return (
-    <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-6 mt-8 border-2 border-gray-600">
-      <div className="text-center text-white text-xl font-bold mb-6 tracking-wide">
-        🎹 脚踏板
+    <div className="mb-5 flex items-center justify-center gap-3 rounded-2xl border border-gray-300 bg-white/80 px-4 py-3 shadow-md backdrop-blur-sm">
+      <div className="text-sm font-semibold tracking-wide text-gray-700">
+        脚踏板
       </div>
 
-      <div className="flex gap-6 justify-center flex-wrap">
-        {/* 柔音踏板 */}
-        <button
-          onClick={onSoftClick}
-          className={`w-20 h-16 rounded-t-lg border-4 border-t-2 border-b-4 transition-all duration-75 flex flex-col items-center justify-center text-xs font-bold ${
-            softActive
-              ? 'bg-gradient-to-b from-blue-400 to-blue-600 text-white border-blue-800 transform translate-y-1 shadow-inner'
-              : 'bg-gradient-to-b from-gray-400 to-gray-600 text-gray-800 border-gray-700 shadow-lg hover:-translate-y-1'
-          }`}
-        >
-          ♪ 柔音
-        </button>
-
-        {/* 中踏板 */}
-        <button
-          onClick={onCenterPedalClick}
-          className={`w-20 h-16 rounded-t-lg border-4 border-t-2 border-b-4 transition-all duration-75 flex flex-col items-center justify-center text-xs font-bold ${
-            centerPedalActive
-              ? 'bg-gradient-to-b from-blue-400 to-blue-600 text-white border-blue-800 transform translate-y-1 shadow-inner'
-              : 'bg-gradient-to-b from-gray-400 to-gray-600 text-gray-800 border-gray-700 shadow-lg hover:-translate-y-1'
-          }`}
-        >
-          ⫶ 中踏板
-        </button>
-
-        {/* 延音踏板（主要） */}
-        <button
-          onClick={onSustainClick}
-          className={`w-20 h-16 rounded-t-lg border-4 border-t-2 border-b-4 transition-all duration-75 flex flex-col items-center justify-center text-xs font-bold ${
-            sustainActive
-              ? 'bg-gradient-to-b from-blue-400 to-blue-600 text-white border-blue-800 transform translate-y-1 shadow-inner'
-              : 'bg-gradient-to-b from-gray-400 to-gray-600 text-gray-800 border-gray-700 shadow-lg hover:-translate-y-1'
-          }`}
-        >
-          ⊡ 延音
-        </button>
-      </div>
-
-      {/* 脚踏板支架 */}
-      <div className="flex gap-6 justify-center mt-1">
-        <div className="w-20 h-3 bg-gradient-to-b from-gray-600 to-gray-800 rounded-b-lg shadow-md border-2 border-gray-700" />
-        <div className="w-20 h-3 bg-gradient-to-b from-gray-600 to-gray-800 rounded-b-lg shadow-md border-2 border-gray-700" />
-        <div className="w-20 h-3 bg-gradient-to-b from-gray-600 to-gray-800 rounded-b-lg shadow-md border-2 border-gray-700" />
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {pedals.map((pedal) => (
+          <button
+            key={pedal.label}
+            onClick={pedal.onClick}
+            className={`min-w-20 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-100 ${
+              pedal.active
+                ? 'border-blue-700 bg-gradient-to-b from-blue-400 to-blue-600 text-white shadow-inner translate-y-px'
+                : 'border-gray-300 bg-gradient-to-b from-white to-gray-100 text-gray-700 shadow-sm hover:-translate-y-0.5 hover:shadow'
+            }`}
+          >
+            <span className="mr-1">{pedal.icon}</span>
+            {pedal.label}
+          </button>
+        ))}
       </div>
     </div>
   );

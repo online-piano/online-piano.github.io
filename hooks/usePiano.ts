@@ -146,6 +146,17 @@ const KEY_MAP: Record<string, string> = {
   "7": "A#5",
 };
 
+const MASTER_HEADROOM = 0.75;
+const NOTE_OUTPUT_GAIN = 0.38;
+
+function configureOutputCompressor(compressor: DynamicsCompressorNode) {
+  compressor.threshold.value = -18;
+  compressor.knee.value = 18;
+  compressor.ratio.value = 12;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.2;
+}
+
 export function usePiano() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
@@ -170,8 +181,12 @@ export function usePiano() {
       window.AudioContext || (window as any).webkitAudioContext
     )();
     const masterGain = audioContext.createGain();
-    masterGain.connect(audioContext.destination);
-    masterGain.gain.value = volumeRef.current / 100;
+    const masterCompressor = audioContext.createDynamicsCompressor();
+    configureOutputCompressor(masterCompressor);
+
+    masterGain.connect(masterCompressor);
+    masterCompressor.connect(audioContext.destination);
+    masterGain.gain.value = (volumeRef.current / 100) * MASTER_HEADROOM;
 
     audioContextRef.current = audioContext;
     masterGainRef.current = masterGain;
@@ -291,6 +306,7 @@ export function usePiano() {
       }
 
       const gameGain = audioContext.createGain();
+      gameGain.gain.value = NOTE_OUTPUT_GAIN;
       gameGain.connect(masterGain);
 
       const startTime = audioContext.currentTime;
@@ -456,7 +472,7 @@ export function usePiano() {
   const updateVolume = useCallback((volume: number) => {
     volumeRef.current = volume;
     if (masterGainRef.current) {
-      masterGainRef.current.gain.value = volume / 100;
+      masterGainRef.current.gain.value = (volume / 100) * MASTER_HEADROOM;
     }
   }, []);
 
@@ -541,12 +557,16 @@ export function usePiano() {
     );
 
     const offlineMaster = offlineCtx.createGain();
-    offlineMaster.gain.value = volumeRef.current / 100;
-    offlineMaster.connect(offlineCtx.destination);
+    const offlineCompressor = offlineCtx.createDynamicsCompressor();
+    configureOutputCompressor(offlineCompressor);
+    offlineMaster.gain.value = (volumeRef.current / 100) * MASTER_HEADROOM;
+    offlineMaster.connect(offlineCompressor);
+    offlineCompressor.connect(offlineCtx.destination);
 
     notes.forEach(({ frequency, startTime, duration }) => {
       const B = 0.00015 * Math.max(1, frequency / 440);
       const noteGain = offlineCtx.createGain();
+      noteGain.gain.value = NOTE_OUTPUT_GAIN;
       noteGain.connect(offlineMaster);
       const releaseAt = startTime + Math.max(duration, 0.05);
 

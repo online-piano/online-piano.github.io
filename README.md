@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Online Piano
 
-## Getting Started
+一个基于 Next.js 和 Web Audio API 的在线钢琴项目，支持鼠标、键盘和触屏弹奏，也提供录音、回放、下载以及示例曲目播放功能。
 
-First, run the development server:
+## 功能特性
+
+- 浏览器内实时发声，无需额外音源文件
+- 支持 21 键紧凑模式和 88 键全键盘模式切换
+- 支持电脑键盘映射弹奏，并可动态切换八度
+- 支持鼠标点击和移动端触控操作
+- 支持延音踏板、柔音踏板和中踏板 UI 控制
+- 支持录音、回放、清空和下载录音结果
+- 内置多首示例曲目，可直接播放演示
+
+## 技术栈
+
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Web Audio API
+
+## 本地运行
+
+先安装依赖：
+
+```bash
+npm install
+```
+
+启动开发环境：
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+然后在浏览器打开 http://localhost:3000。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+如需生产构建，可执行：
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm run start
+```
 
-## Learn More
+## 使用说明
 
-To learn more about Next.js, take a look at the following resources:
+页面提供以下主要交互：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- 音量调节
+- 八度切换
+- 21 键 / 88 键模式切换
+- 录音、回放、下载、清空
+- 脚踏板控制
+- 示例曲目播放
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 键盘映射
 
-## Deploy on Vercel
+默认以当前八度为中心，支持最多连续 3 个八度的快捷键映射。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- 白键常用映射：`Z X C V B N M`、`, . /`、`R T Y U`、`I O P [ ] ; \\`
+- 黑键常用映射：`S D G H J`、`L \``、`6 7 8`、`9 0 - = 2`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+你也可以直接点击页面上的钢琴键，界面会同步显示每个键位对应的快捷键。
+
+## 录音与播放
+
+- 点击 `Record` 开始录音，再次点击结束录音
+- 录音完成后可使用 `Play` 回放
+- 可通过 `Download` 下载录音结果
+- 点击 `Clear` 可清空当前录音数据
+
+## 移动端支持
+
+项目对触屏交互做了针对性处理：
+
+- 使用 Pointer Events 统一鼠标与触摸输入
+- 禁用长按菜单和拖拽，减少误触
+- 在移动端优先保证按下和抬起的响应一致性
+
+首次在移动端或部分桌面浏览器中使用时，通常需要先进行一次用户交互，浏览器才会恢复音频上下文并开始发声。
+
+## 项目结构
+
+```text
+app/                页面入口与全局样式
+components/         钢琴键盘、踏板、录音控制、示例曲目组件
+hooks/usePiano.ts   Web Audio 发声、录音与播放逻辑
+public/             静态资源目录
+```
+
+## 开发说明
+
+- 主要页面入口在 `app/page.tsx`
+- 发声、录音和播放逻辑集中在 `hooks/usePiano.ts`
+- 示例曲目定义位于 `components/DemoSongs.tsx`
+
+如果你准备继续扩展功能，比较直接的方向包括 MIDI 接入、录音格式导出优化、更多曲库和更完整的踏板行为实现。
