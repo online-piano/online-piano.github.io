@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 
 interface PianoKeyboardProps {
   piano: any;
@@ -54,13 +54,20 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
     piano.stopNote(noteName);
   }, [piano]);
 
-  const handleMouseDown = (noteName: string, freq: number) => pressKey(noteName, freq);
-  const handleMouseUp = (noteName: string) => releaseKey(noteName);
-
-  const handleTouchStart = (noteName: string, freq: number, e: React.TouchEvent) => {
+  const handlePointerDown = (noteName: string, freq: number, e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
     pressKey(noteName, freq);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
-  const handleTouchEnd = (noteName: string, e: React.TouchEvent) => {
+
+  const handlePointerUp = (noteName: string, e: React.PointerEvent) => {
+    e.preventDefault();
+    releaseKey(noteName);
+  };
+
+  const handlePointerCancel = (noteName: string, e: React.PointerEvent) => {
+    e.preventDefault();
     releaseKey(noteName);
   };
 
@@ -99,12 +106,16 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
               return (
                 <button
                   key={`w-${fullNoteName}`}
-                  onMouseDown={() => handleMouseDown(fullNoteName, freq)}
-                  onMouseUp={() => handleMouseUp(fullNoteName)}
-                  onMouseLeave={() => handleMouseUp(fullNoteName)}
-                  onTouchStart={(e) => handleTouchStart(fullNoteName, freq, e)}
-                  onTouchEnd={(e) => handleTouchEnd(fullNoteName, e)}
-                  onTouchCancel={(e) => handleTouchEnd(fullNoteName, e)}
+                  onPointerDown={(e) => handlePointerDown(fullNoteName, freq, e)}
+                  onPointerUp={(e) => handlePointerUp(fullNoteName, e)}
+                  onPointerCancel={(e) => handlePointerCancel(fullNoteName, e)}
+                  onPointerLeave={(e) => {
+                    if (e.pointerType === 'mouse') {
+                      releaseKey(fullNoteName);
+                    }
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  onDragStart={(e) => e.preventDefault()}
                   style={{
                     width: whiteKeyWidth,
                     height: whiteKeyHeight,
@@ -116,6 +127,9 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
                     borderRadius: '0 0 6px 6px',
                     cursor: 'pointer',
                     userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none',
+                    WebkitTapHighlightColor: 'transparent',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'flex-end',
@@ -159,12 +173,25 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
             return (
               <div
                 key={`b-${fullNoteName}`}
-                onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(fullNoteName, freq); }}
-                onMouseUp={(e) => { e.stopPropagation(); handleMouseUp(fullNoteName); }}
-                onMouseLeave={() => handleMouseUp(fullNoteName)}
-                onTouchStart={(e) => { e.stopPropagation(); handleTouchStart(fullNoteName, freq, e); }}
-                onTouchEnd={(e) => { e.stopPropagation(); handleTouchEnd(fullNoteName, e); }}
-                onTouchCancel={(e) => { e.stopPropagation(); handleTouchEnd(fullNoteName, e); }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  handlePointerDown(fullNoteName, freq, e);
+                }}
+                onPointerUp={(e) => {
+                  e.stopPropagation();
+                  handlePointerUp(fullNoteName, e);
+                }}
+                onPointerCancel={(e) => {
+                  e.stopPropagation();
+                  handlePointerCancel(fullNoteName, e);
+                }}
+                onPointerLeave={(e) => {
+                  if (e.pointerType === 'mouse') {
+                    releaseKey(fullNoteName);
+                  }
+                }}
+                onContextMenu={(e) => e.preventDefault()}
+                onDragStart={(e) => e.preventDefault()}
                 style={{
                   position: 'absolute',
                   top: containerPadding,
@@ -178,6 +205,9 @@ export default function PianoKeyboard({ piano, octave, notes, externalPressedKey
                   borderRadius: '0 0 5px 5px',
                   cursor: 'pointer',
                   userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  WebkitTouchCallout: 'none',
+                  WebkitTapHighlightColor: 'transparent',
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'flex-end',

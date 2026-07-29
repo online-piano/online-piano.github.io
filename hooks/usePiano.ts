@@ -177,6 +177,14 @@ export function usePiano() {
     masterGainRef.current = masterGain;
   }, []);
 
+  const ensureAudioContextRunning = useCallback(() => {
+    const audioContext = audioContextRef.current;
+    if (!audioContext) return;
+    if (audioContext.state === "suspended") {
+      void audioContext.resume().catch(() => {});
+    }
+  }, []);
+
   const performStopNote = (noteName: string, keyElement?: HTMLElement) => {
     const audioContext = audioContextRef.current;
     const noteData = activeOscillatorsRef.current.get(noteName);
@@ -253,6 +261,7 @@ export function usePiano() {
 
   const playNote = useCallback(
     (noteName: string, frequency: number, keyElement?: HTMLElement) => {
+      ensureAudioContextRunning();
       const audioContext = audioContextRef.current;
       const masterGain = masterGainRef.current;
 
@@ -400,7 +409,7 @@ export function usePiano() {
         recordIndex,
       });
     },
-    [],
+    [ensureAudioContextRunning],
   );
 
   const stopNote = useCallback((noteName: string, keyElement?: HTMLElement) => {
@@ -430,6 +439,7 @@ export function usePiano() {
         });
         setTimeout(
           () => {
+            ensureAudioContextRunning();
             try {
               noteGain.disconnect();
             } catch {}
@@ -513,7 +523,7 @@ export function usePiano() {
         onFinish?.();
       };
     },
-    [playNote],
+    [playNote, ensureAudioContextRunning],
   );
 
   const downloadRecording = useCallback(async () => {
@@ -656,6 +666,7 @@ export function usePiano() {
       onNoteOff?: (note: string) => void,
       onFinish?: () => void,
     ) => {
+      ensureAudioContextRunning();
       const audioContext = audioContextRef.current;
       if (!audioContext) return () => {};
 
@@ -750,7 +761,7 @@ export function usePiano() {
         if (onFinish) onFinish();
       };
     },
-    [playNote, stopNote],
+    [playNote, stopNote, ensureAudioContextRunning],
   );
 
   return {
