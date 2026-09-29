@@ -1,6 +1,8 @@
-'use client';
+"use client";
 
-interface PedalPanelProps {
+import { useLanguage } from "@/components/LanguageProvider";
+
+interface Props {
   sustainActive: boolean;
   softActive: boolean;
   centerPedalActive: boolean;
@@ -15,51 +17,31 @@ export default function PedalPanel({
   centerPedalActive,
   onSustainClick,
   onSoftClick,
-  onCenterPedalClick
-}: PedalPanelProps) {
-  const pedals = [
-    {
-      label: '柔音',
-      icon: '♪',
-      active: softActive,
-      onClick: onSoftClick,
-    },
-    {
-      label: '中踏板',
-      icon: '⫶',
-      active: centerPedalActive,
-      onClick: onCenterPedalClick,
-    },
-    {
-      label: '延音',
-      icon: '⊡',
-      active: sustainActive,
-      onClick: onSustainClick,
-    },
-  ];
+  onCenterPedalClick,
+}: Props) {
+  const { language } = useLanguage();
+  const isChinese = language === "zh";
+  const items = [
+    [isChinese ? "柔音" : "Soft", softActive, onSoftClick],
+    [isChinese ? "中音" : "Sostenuto", centerPedalActive, onCenterPedalClick],
+    [isChinese ? "延音" : "Sustain", sustainActive, onSustainClick],
+  ] as const;
 
   return (
-    <div className="mb-5 flex items-center justify-center gap-3 rounded-2xl border border-gray-300 bg-white/80 px-4 py-3 shadow-md backdrop-blur-sm">
-      <div className="text-sm font-semibold tracking-wide text-gray-700">
-        脚踏板
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {pedals.map((pedal) => (
-          <button
-            key={pedal.label}
-            onClick={pedal.onClick}
-            className={`min-w-20 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-100 ${
-              pedal.active
-                ? 'border-blue-700 bg-gradient-to-b from-blue-400 to-blue-600 text-white shadow-inner translate-y-px'
-                : 'border-gray-300 bg-gradient-to-b from-white to-gray-100 text-gray-700 shadow-sm hover:-translate-y-0.5 hover:shadow'
-            }`}
-          >
-            <span className="mr-1">{pedal.icon}</span>
-            {pedal.label}
-          </button>
-        ))}
-      </div>
+    <div className="my-3 flex flex-wrap items-center justify-center gap-4 py-3">
+      <span className="mr-2 text-xs font-bold uppercase tracking-widest text-stone-400">
+        {isChinese ? "踏板" : "Pedals"}
+      </span>
+      {items.map(([label, active, action]) => (
+        <button
+          key={label}
+          onClick={action}
+          className={`min-h-12 min-w-28 rounded-xl border px-5 py-3 text-xs font-bold transition ${active ? "border-violet-500 bg-violet-600 text-white shadow-md" : "border-black/10 bg-white text-stone-600 hover:border-violet-200 hover:bg-violet-50"}`}
+        >
+          {active ? "● " : ""}
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

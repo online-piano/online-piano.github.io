@@ -1,741 +1,353 @@
 "use client";
+import { useLanguage } from "@/components/LanguageProvider";
 
-import React, { useState } from "react";
-
-export interface DemoSong {
+export type SongEvent = {
+  start: number;
+  duration: number;
+  notes: string[];
+};
+export type DemoSong = {
   name: string;
-  notes: Array<{ note: string | string[]; duration: number }>;
-}
-
-type SongEvent = { note: string | string[]; duration: number };
-
-const WHOLE = 1.6;
-const HALF = 0.8;
-const TRIPLET_SIXTEENTH = 0.075;
-const DOTTED_QUARTER = 0.6;
-const SIXTEENTH = 0.1;
-const EIGHTH = 0.2;
-const DOTTED_EIGHTH = 0.3;
-const QUARTER = 0.4;
-
-const note = (pitch: string, duration: number) => ({ note: pitch, duration });
-const chord = (pitches: string[], duration: number) => ({
-  note: pitches,
-  duration,
-});
-const rest = (duration: number) => ({ note: "REST", duration });
-const phrase = (...entries: Array<[string, number]>) =>
-  entries.map(([pitch, duration]) => note(pitch, duration));
-
-const PITCHES = [
-  "C",
-  "C#",
-  "D",
-  "D#",
-  "E",
-  "F",
-  "F#",
-  "G",
-  "G#",
-  "A",
-  "A#",
-  "B",
-];
-const NOTE_INDEX: Record<string, number> = {
-  C: 0,
-  "C#": 1,
-  Db: 1,
-  D: 2,
-  "D#": 3,
-  Eb: 3,
-  E: 4,
-  Fb: 4,
-  F: 5,
-  "F#": 6,
-  Gb: 6,
-  G: 7,
-  "G#": 8,
-  Ab: 8,
-  A: 9,
-  "A#": 10,
-  Bb: 10,
-  B: 11,
-  Cb: 11,
+  difficulty: string;
+  bpm: number;
+  events: SongEvent[];
 };
 
-function transposeNote(pitch: string, semitones: number): string | null {
-  const match = /^([A-G](?:#|b)?)(\d)$/.exec(pitch);
-  if (!match) return null;
-
-  const [, noteName, octaveText] = match;
-  const noteIndex = NOTE_INDEX[noteName];
-  if (noteIndex === undefined) return null;
-
-  const octave = Number(octaveText);
-  const midi = (octave + 1) * 12 + noteIndex + semitones;
-  const nextOctave = Math.floor(midi / 12) - 1;
-  const nextIndex = ((midi % 12) + 12) % 12;
-
-  if (nextOctave < 2 || nextOctave > 8) {
-    return null;
-  }
-
-  return `${PITCHES[nextIndex]}${nextOctave}`;
-}
-
-function arrangeTwoHands(events: SongEvent[]): SongEvent[] {
+const ev = (
+  start: number,
+  duration: number,
+  ...notes: string[]
+): SongEvent => ({ start, duration, notes });
+const build = (
+  bpm: number,
+  steps: Array<{ beats: number; duration?: number; notes: string[] }>,
+): SongEvent[] => {
   let cursor = 0;
-
-  return events.map((event) => {
-    if (event.note === "REST" || Array.isArray(event.note)) {
-      cursor += event.duration;
-      return event;
-    }
-
-    const startsOnBeat = Math.abs(cursor % QUARTER) < 0.0001;
-    const withBass = event.duration >= QUARTER || startsOnBeat;
-    const withFifth = event.duration >= HALF;
-
-    if (!withBass) {
-      cursor += event.duration;
-      return event;
-    }
-
-    const bassRoot = transposeNote(event.note, -12);
-    const bassFifth = withFifth ? transposeNote(event.note, -5) : null;
-    const chordNotes = [bassRoot, bassFifth, event.note].filter(
-      (value): value is string => Boolean(value),
-    );
-
-    cursor += event.duration;
-    return chord([...new Set(chordNotes)], event.duration);
+  return steps.map((s) => {
+    const e = ev(cursor, s.duration ?? s.beats, ...s.notes);
+    cursor += s.beats;
+    return e;
   });
-}
-
-// 完整且已校对过的主旋律曲库
-export const DEMO_SONGS: Record<string, DemoSong> = {
-  twinkle: {
-    name: "✨ 小星星",
-    notes: arrangeTwoHands([
-      ...phrase(
-        ["C4", QUARTER],
-        ["C4", QUARTER],
-        ["G4", QUARTER],
-        ["G4", QUARTER],
-        ["A4", QUARTER],
-        ["A4", QUARTER],
-        ["G4", HALF],
-      ),
-      ...phrase(
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-        ["D4", QUARTER],
-        ["C4", HALF],
-      ),
-      ...phrase(
-        ["G4", QUARTER],
-        ["G4", QUARTER],
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", HALF],
-      ),
-      ...phrase(
-        ["G4", QUARTER],
-        ["G4", QUARTER],
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", HALF],
-      ),
-      ...phrase(
-        ["C4", QUARTER],
-        ["C4", QUARTER],
-        ["G4", QUARTER],
-        ["G4", QUARTER],
-        ["A4", QUARTER],
-        ["A4", QUARTER],
-        ["G4", HALF],
-      ),
-      ...phrase(
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-        ["D4", QUARTER],
-        ["C4", HALF],
-      ),
-    ]),
-  },
-  mary: {
-    name: "🐑 玛丽有只小羊羔",
-    notes: arrangeTwoHands([
-      ...phrase(
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", HALF],
-      ),
-      ...phrase(["D4", QUARTER], ["D4", QUARTER], ["D4", HALF]),
-      ...phrase(["E4", QUARTER], ["G4", QUARTER], ["G4", HALF]),
-      ...phrase(
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-      ),
-      ...phrase(
-        ["D4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-        ["C4", HALF],
-      ),
-    ]),
-  },
-  ode: {
-    name: "🎵 欢乐颂",
-    notes: arrangeTwoHands([
-      ...phrase(
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["F4", QUARTER],
-        ["G4", QUARTER],
-        ["G4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-      ),
-      ...phrase(
-        ["C4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", DOTTED_QUARTER],
-        ["D4", EIGHTH],
-        ["D4", HALF],
-      ),
-      ...phrase(
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["F4", QUARTER],
-        ["G4", QUARTER],
-        ["G4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-      ),
-      ...phrase(
-        ["C4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", DOTTED_QUARTER],
-        ["C4", EIGHTH],
-        ["C4", HALF],
-      ),
-      ...phrase(
-        ["D4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", EIGHTH],
-        ["F4", EIGHTH],
-        ["E4", QUARTER],
-        ["C4", QUARTER],
-      ),
-      ...phrase(
-        ["D4", QUARTER],
-        ["E4", EIGHTH],
-        ["F4", EIGHTH],
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["G3", HALF],
-      ),
-      ...phrase(
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["F4", QUARTER],
-        ["G4", QUARTER],
-        ["G4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-      ),
-      ...phrase(
-        ["C4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", DOTTED_QUARTER],
-        ["C4", EIGHTH],
-        ["C4", HALF],
-      ),
-    ]),
-  },
-  birthday: {
-    name: "🎂 生日快乐歌",
-    notes: arrangeTwoHands([
-      ...phrase(
-        ["G4", EIGHTH],
-        ["G4", EIGHTH],
-        ["A4", QUARTER],
-        ["G4", QUARTER],
-        ["C5", QUARTER],
-        ["B4", HALF],
-      ),
-      ...phrase(
-        ["G4", EIGHTH],
-        ["G4", EIGHTH],
-        ["A4", QUARTER],
-        ["G4", QUARTER],
-        ["D5", QUARTER],
-        ["C5", HALF],
-      ),
-      ...phrase(
-        ["G4", EIGHTH],
-        ["G4", EIGHTH],
-        ["G5", QUARTER],
-        ["E5", QUARTER],
-        ["C5", QUARTER],
-        ["B4", QUARTER],
-        ["A4", HALF],
-      ),
-      ...phrase(
-        ["F5", EIGHTH],
-        ["F5", EIGHTH],
-        ["E5", QUARTER],
-        ["C5", QUARTER],
-        ["D5", QUARTER],
-        ["C5", HALF],
-      ),
-    ]),
-  },
-  alice: {
-    name: "🎹 致爱丽丝",
-    notes: arrangeTwoHands([
-      // 1-1. 前半句
-      ...phrase(
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["E5", EIGHTH],
-        ["B4", EIGHTH],
-        ["D5", EIGHTH],
-        ["C5", EIGHTH],
-        ["A4", EIGHTH],
-      ),
-      rest(EIGHTH),
-      ...phrase(["C4", EIGHTH], ["E4", EIGHTH], ["A4", EIGHTH]),
-      ...phrase(["B4", EIGHTH]),
-      rest(EIGHTH),
-      ...phrase(["E4", EIGHTH], ["G#4", EIGHTH], ["B4", EIGHTH]),
-      ...phrase(["C5", EIGHTH]),
-      rest(EIGHTH),
-      ...phrase(["E4", EIGHTH]),
-
-      ...phrase(
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["E5", EIGHTH],
-        ["B4", EIGHTH],
-        ["D5", EIGHTH],
-        ["C5", EIGHTH],
-        ["A4", EIGHTH],
-      ),
-      rest(EIGHTH),
-      ...phrase(["C4", EIGHTH], ["E4", EIGHTH], ["A4", EIGHTH]),
-      ...phrase(["B4", EIGHTH]),
-      rest(EIGHTH),
-      ...phrase(["E4", EIGHTH], ["C5", EIGHTH], ["B4", EIGHTH]),
-      ...phrase(["A4", EIGHTH]),
-      rest(EIGHTH),
-
-      // ================= 2. 插段一 (B段 - F大调) =================
-      ...phrase(["C5", EIGHTH], ["C5", EIGHTH], ["C5", EIGHTH]),
-      ...phrase(
-        ["F5", DOTTED_EIGHTH],
-        ["E5", EIGHTH],
-        ["D5", EIGHTH],
-        ["C5", EIGHTH],
-      ),
-      ...phrase(
-        ["Bb4", EIGHTH],
-        ["A4", EIGHTH],
-        ["G4", EIGHTH],
-        ["F4", EIGHTH],
-      ),
-      ...phrase(
-        ["E4", EIGHTH],
-        ["F4", EIGHTH],
-        ["G4", EIGHTH],
-        ["A4", EIGHTH],
-        ["Bb4", EIGHTH],
-        ["C5", EIGHTH],
-      ),
-      ...phrase(["D5", EIGHTH], ["B4", EIGHTH], ["C5", EIGHTH]),
-      rest(EIGHTH),
-      ...phrase(["D5", EIGHTH], ["E5", EIGHTH]),
-      ...phrase(
-        ["F5", EIGHTH],
-        ["F5", EIGHTH],
-        ["G5", EIGHTH],
-        ["E5", EIGHTH],
-        ["F5", EIGHTH],
-      ),
-      ...phrase(
-        ["D5", EIGHTH],
-        ["E5", EIGHTH],
-        ["F5", EIGHTH],
-        ["D5", EIGHTH],
-        ["E5", EIGHTH],
-      ),
-      ...phrase(
-        ["C5", EIGHTH],
-        ["D5", EIGHTH],
-        ["C5", EIGHTH],
-        ["B4", EIGHTH],
-        ["A4", EIGHTH],
-      ),
-
-      ...phrase(
-        ["Bb4", EIGHTH / 2],
-        ["A4", EIGHTH / 2],
-        ["G4", EIGHTH / 2],
-        ["F4", EIGHTH / 2],
-        ["E4", EIGHTH / 2],
-        ["D4", EIGHTH / 2],
-        ["C4", EIGHTH / 2],
-        ["Bb3", EIGHTH / 2],
-      ),
-
-      ...phrase(
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["E5", EIGHTH],
-        ["B4", EIGHTH],
-        ["D5", EIGHTH],
-        ["C5", EIGHTH],
-        ["A4", EIGHTH],
-      ),
-      rest(EIGHTH),
-      ...phrase(["C4", EIGHTH], ["E4", EIGHTH], ["A4", EIGHTH]),
-      ...phrase(["B4", EIGHTH]),
-      rest(EIGHTH),
-      ...phrase(["E4", EIGHTH], ["G#4", EIGHTH], ["B4", EIGHTH]),
-      ...phrase(["C5", EIGHTH]),
-      rest(EIGHTH),
-      ...phrase(["E4", EIGHTH]),
-
-      ...phrase(
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["E5", EIGHTH],
-        ["B4", EIGHTH],
-        ["D5", EIGHTH],
-        ["C5", EIGHTH],
-        ["A4", EIGHTH],
-      ),
-      rest(EIGHTH),
-      ...phrase(["C4", EIGHTH], ["E4", EIGHTH], ["A4", EIGHTH]),
-      ...phrase(["B4", EIGHTH]),
-      rest(EIGHTH),
-      ...phrase(["E4", EIGHTH], ["C5", EIGHTH], ["B4", EIGHTH]),
-      ...phrase(["A4", EIGHTH]),
-      rest(EIGHTH),
-
-      ...phrase(["E5", EIGHTH], ["E5", EIGHTH], ["E5", EIGHTH]),
-      ...phrase(
-        ["E5", EIGHTH],
-        ["F5", EIGHTH],
-        ["E5", EIGHTH],
-        ["D5", EIGHTH],
-        ["D5", EIGHTH],
-      ),
-      ...phrase(
-        ["D5", EIGHTH],
-        ["F5", EIGHTH],
-        ["E5", EIGHTH],
-        ["D5", EIGHTH],
-        ["C5", EIGHTH],
-      ),
-      ...phrase(
-        ["B4", EIGHTH],
-        ["C5", EIGHTH],
-        ["D5", EIGHTH],
-        ["E5", EIGHTH],
-        ["C5", EIGHTH],
-      ),
-      ...phrase(["A4", EIGHTH]),
-      rest(EIGHTH),
-
-      ...phrase(
-        ["A3", EIGHTH],
-        ["C4", EIGHTH],
-        ["E4", EIGHTH],
-        ["A4", EIGHTH],
-        ["C5", EIGHTH],
-        ["E5", EIGHTH],
-        ["A5", EIGHTH],
-        ["C6", EIGHTH],
-        ["B5", EIGHTH],
-        ["Bb5", EIGHTH],
-        ["A5", EIGHTH],
-        ["Ab5", EIGHTH],
-        ["G5", EIGHTH],
-        ["F#5", EIGHTH],
-        ["F5", EIGHTH],
-        ["E5", EIGHTH],
-        ["D#5", EIGHTH],
-        ["D5", EIGHTH],
-      ),
-
-      ...phrase(
-        ["E5", SIXTEENTH],
-        ["D#5", SIXTEENTH],
-        ["E5", SIXTEENTH],
-        ["D#5", SIXTEENTH],
-        ["E5", SIXTEENTH],
-        ["B4", SIXTEENTH],
-        ["D5", SIXTEENTH],
-        ["C5", SIXTEENTH],
-        ["A4", EIGHTH],
-      ),
-      rest(SIXTEENTH),
-      ...phrase(["C4", SIXTEENTH], ["E4", SIXTEENTH], ["A4", SIXTEENTH]),
-      ...phrase(["B4", EIGHTH]),
-      rest(SIXTEENTH),
-      ...phrase(["E4", SIXTEENTH], ["G#4", SIXTEENTH], ["B4", SIXTEENTH]),
-      ...phrase(["C5", EIGHTH]),
-      rest(SIXTEENTH),
-      ...phrase(["E4", SIXTEENTH]),
-
-      ...phrase(
-        ["E5", SIXTEENTH],
-        ["D#5", SIXTEENTH],
-        ["E5", SIXTEENTH],
-        ["D#5", SIXTEENTH],
-        ["E5", SIXTEENTH],
-        ["B4", SIXTEENTH],
-        ["D5", SIXTEENTH],
-        ["C5", SIXTEENTH],
-        ["A4", EIGHTH],
-      ),
-      rest(SIXTEENTH),
-      ...phrase(["C4", SIXTEENTH], ["E4", SIXTEENTH], ["A4", SIXTEENTH]),
-      ...phrase(["B4", EIGHTH]),
-      rest(SIXTEENTH),
-      ...phrase(["E4", SIXTEENTH], ["C5", SIXTEENTH], ["B4", SIXTEENTH]),
-      ...phrase(["A4", EIGHTH]),
-    ]),
-  },
-  bells: {
-    name: "🔔 铃儿响叮当",
-    notes: arrangeTwoHands([
-      ...phrase(["E4", QUARTER], ["E4", QUARTER], ["E4", HALF]),
-      ...phrase(["E4", QUARTER], ["E4", QUARTER], ["E4", HALF]),
-      ...phrase(
-        ["E4", QUARTER],
-        ["G4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", WHOLE],
-      ),
-      ...phrase(
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", EIGHTH],
-        ["E4", EIGHTH],
-      ),
-      ...phrase(
-        ["E4", QUARTER],
-        ["D4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", QUARTER],
-        ["D4", HALF],
-        ["G4", HALF],
-      ),
-      ...phrase(["E4", QUARTER], ["E4", QUARTER], ["E4", HALF]),
-      ...phrase(["E4", QUARTER], ["E4", QUARTER], ["E4", HALF]),
-      ...phrase(
-        ["E4", QUARTER],
-        ["G4", QUARTER],
-        ["C4", QUARTER],
-        ["D4", QUARTER],
-        ["E4", WHOLE],
-      ),
-      ...phrase(
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["F4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", QUARTER],
-        ["E4", EIGHTH],
-        ["E4", EIGHTH],
-      ),
-      ...phrase(
-        ["G4", QUARTER],
-        ["G4", QUARTER],
-        ["F4", QUARTER],
-        ["D4", QUARTER],
-        ["C4", WHOLE],
-      ),
-    ]),
-  },
-  silent: {
-    name: "🌙 平安夜",
-    notes: arrangeTwoHands([
-      ...phrase(
-        ["G4", DOTTED_QUARTER],
-        ["A4", EIGHTH],
-        ["G4", QUARTER],
-        ["E4", DOTTED_QUARTER],
-        ["G4", EIGHTH],
-      ),
-      ...phrase(
-        ["A4", DOTTED_QUARTER],
-        ["G4", EIGHTH],
-        ["E4", QUARTER],
-        ["A4", HALF],
-      ),
-      ...phrase(
-        ["B4", HALF],
-        ["B4", QUARTER],
-        ["D5", QUARTER],
-        ["C5", QUARTER],
-        ["G4", QUARTER],
-        ["E4", QUARTER],
-      ),
-      ...phrase(["G4", HALF], ["F4", QUARTER], ["D4", QUARTER], ["C4", WHOLE]),
-      ...phrase(
-        ["G4", DOTTED_QUARTER],
-        ["A4", EIGHTH],
-        ["G4", QUARTER],
-        ["E4", DOTTED_QUARTER],
-        ["G4", EIGHTH],
-      ),
-      ...phrase(
-        ["A4", DOTTED_QUARTER],
-        ["G4", EIGHTH],
-        ["E4", QUARTER],
-        ["A4", HALF],
-      ),
-      ...phrase(
-        ["B4", HALF],
-        ["B4", QUARTER],
-        ["D5", QUARTER],
-        ["C5", QUARTER],
-        ["G4", QUARTER],
-        ["E4", QUARTER],
-      ),
-      ...phrase(["G4", HALF], ["F4", QUARTER], ["D4", QUARTER], ["C4", WHOLE]),
-    ]),
-  },
-  london: {
-    name: "🌉 伦敦大桥",
-    notes: arrangeTwoHands([
-      ...phrase(
-        ["G4", QUARTER],
-        ["A4", QUARTER],
-        ["G4", QUARTER],
-        ["F4", QUARTER],
-      ),
-      ...phrase(["E4", QUARTER], ["F4", QUARTER], ["G4", HALF]),
-      ...phrase(["D4", QUARTER], ["E4", QUARTER], ["F4", HALF]),
-      ...phrase(["E4", QUARTER], ["F4", QUARTER], ["G4", HALF]),
-      ...phrase(
-        ["G4", QUARTER],
-        ["A4", QUARTER],
-        ["G4", QUARTER],
-        ["F4", QUARTER],
-      ),
-      ...phrase(["E4", QUARTER], ["F4", QUARTER], ["G4", HALF]),
-      ...phrase(["D4", HALF], ["G4", HALF]),
-      ...phrase(["E4", HALF], ["C4", WHOLE]),
-    ]),
-  },
 };
+
+// Timeline is expressed in beats, not fixed milliseconds. The player converts beats using each song's BPM.
+const furElise = (): SongEvent[] => {
+  // Für Elise opening/return: 3/8, with the characteristic E-D# motif and left-hand accompaniment.
+  // Beat unit here is an eighth-note. This makes the short notes genuinely shorter than the held notes.
+  const events: SongEvent[] = [];
+  let t = 0;
+  const add = (beats: number, duration: number, ...notes: string[]) => {
+    events.push(ev(t, duration, ...notes));
+    t += beats;
+  };
+
+  const motif = () => {
+    add(1, 0.82, "E5", "A2", "E3", "A3");
+    add(1, 0.82, "D#5", "A2", "E3", "A3");
+    add(1, 0.82, "E5", "A2", "E3", "A3");
+    add(1, 0.82, "D#5", "A2", "E3", "A3");
+    add(1, 0.82, "E5", "A2", "E3", "A3");
+    add(1, 0.82, "B4", "E2", "B2", "E3");
+    add(1, 0.82, "D5", "E2", "B2", "E3");
+    add(1, 0.82, "C5", "E2", "B2", "E3");
+    add(3, 2.7, "A4", "A2", "E3", "A3");
+    add(1, 0.82, "C4", "A2", "E3", "A3");
+    add(1, 0.82, "E4", "A2", "E3", "A3");
+    add(3, 2.7, "A4", "A2", "E3", "A3");
+    add(3, 2.7, "B4", "E2", "B2", "E3");
+    add(1, 0.82, "E4", "E2", "B2", "E3");
+    add(1, 0.82, "G#4", "E2", "B2", "E3");
+    add(3, 2.7, "B4", "E2", "B2", "E3");
+    add(3, 2.7, "C5", "A2", "E3", "A3");
+  };
+
+  motif();
+  motif();
+
+  // Middle episode: wider register and moving left hand. This is intentionally kept on the same time grid.
+  const middle = [
+    ["C6", "A2", "E3", "A3"],
+    ["B5", "A2", "E3", "A3"],
+    ["A5", "A2", "E3", "A3"],
+    ["G#5", "E2", "B2", "E3"],
+    ["A5", "E2", "B2", "E3"],
+    ["C6", "E2", "B2", "E3"],
+    ["E6", "E2", "B2", "E3"],
+    ["D6", "E2", "B2", "E3"],
+    ["C6", "F2", "C3", "F3"],
+    ["A5", "F2", "C3", "F3"],
+    ["G5", "F2", "C3", "F3"],
+    ["F5", "F2", "C3", "F3"],
+    ["E5", "G2", "D3", "G3"],
+    ["D5", "G2", "D3", "G3"],
+    ["C5", "G2", "D3", "G3"],
+    ["B4", "E2", "B2", "E3"],
+    ["A4", "A2", "E3", "A3"],
+  ];
+  middle.forEach((notes, i) =>
+    add(
+      i === middle.length - 1 ? 3 : 1,
+      i === middle.length - 1 ? 2.7 : 0.82,
+      ...notes,
+    ),
+  );
+
+  motif();
+  return events;
+};
+
+export const songs: DemoSong[] = [
+  {
+    name: "Twinkle Twinkle Little Star",
+    difficulty: "Easy",
+    bpm: 96,
+    events: build(96, [
+      ...["C4", "C4", "G4", "G4", "A4", "A4"].map((notes) => ({
+        beats: 1,
+        notes: [notes],
+      })),
+      { beats: 2, notes: ["G4"] },
+      ...["F4", "F4", "E4", "E4", "D4", "D4"].map((notes) => ({
+        beats: 1,
+        notes: [notes],
+      })),
+      { beats: 2, notes: ["C4"] },
+      ...["G4", "G4", "F4", "F4", "E4", "E4"].map((notes) => ({
+        beats: 1,
+        notes: [notes],
+      })),
+      { beats: 2, notes: ["D4"] },
+      ...["G4", "G4", "F4", "F4", "E4", "E4"].map((notes) => ({
+        beats: 1,
+        notes: [notes],
+      })),
+      { beats: 2, notes: ["D4"] },
+      ...["C4", "C4", "G4", "G4", "A4", "A4"].map((notes) => ({
+        beats: 1,
+        notes: [notes],
+      })),
+      { beats: 2, notes: ["G4"] },
+      ...["F4", "F4", "E4", "E4", "D4", "D4"].map((notes) => ({
+        beats: 1,
+        notes: [notes],
+      })),
+      { beats: 4, notes: ["C4"] },
+    ]),
+  },
+  {
+    name: "Mary Had a Little Lamb",
+    difficulty: "Easy",
+    bpm: 100,
+    events: build(100, [
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 1, notes: ["C4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 4, notes: ["E4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 4, notes: ["D4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 4, notes: ["G4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 1, notes: ["C4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 4, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 3, notes: ["C4"] },
+    ]),
+  },
+  {
+    name: "Ode to Joy",
+    difficulty: "Easy",
+    bpm: 108,
+    events: build(108, [
+      ...["E4", "E4", "F4", "G4"].map((n) => ({ beats: 1, notes: [n] })),
+      { beats: 2, notes: ["G4"] },
+      { beats: 2, notes: ["F4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 2, notes: ["D4"] },
+      ...["C4", "C4", "D4", "E4"].map((n) => ({ beats: 1, notes: [n] })),
+      { beats: 2, notes: ["E4"] },
+      { beats: 2, notes: ["D4"] },
+      { beats: 4, notes: ["D4"] },
+      ...["E4", "E4", "F4", "G4"].map((n) => ({ beats: 1, notes: [n] })),
+      { beats: 2, notes: ["G4"] },
+      { beats: 2, notes: ["F4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 2, notes: ["D4"] },
+      ...["C4", "C4", "D4", "E4"].map((n) => ({ beats: 1, notes: [n] })),
+      { beats: 2, notes: ["D4"] },
+      { beats: 2, notes: ["C4"] },
+      { beats: 4, notes: ["C4"] },
+    ]),
+  },
+  {
+    name: "Happy Birthday",
+    difficulty: "Easy",
+    bpm: 96,
+    events: build(96, [
+      { beats: 1, notes: ["G4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 2, notes: ["A4"] },
+      { beats: 2, notes: ["G4"] },
+      { beats: 2, notes: ["C5"] },
+      { beats: 2, notes: ["B4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 2, notes: ["A4"] },
+      { beats: 2, notes: ["G4"] },
+      { beats: 2, notes: ["D5"] },
+      { beats: 2, notes: ["C5"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 2, notes: ["G5"] },
+      { beats: 2, notes: ["E5"] },
+      { beats: 2, notes: ["C5"] },
+      { beats: 2, notes: ["B4"] },
+      { beats: 2, notes: ["A4"] },
+      { beats: 1, notes: ["F5"] },
+      { beats: 1, notes: ["F5"] },
+      { beats: 2, notes: ["E5"] },
+      { beats: 2, notes: ["C5"] },
+      { beats: 2, notes: ["D5"] },
+      { beats: 4, notes: ["C5"] },
+    ]),
+  },
+  { name: "Für Elise", difficulty: "Medium", bpm: 112, events: furElise() },
+  {
+    name: "Jingle Bells",
+    difficulty: "Easy",
+    bpm: 120,
+    events: build(120, [
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 1, notes: ["C4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 4, notes: ["E4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 2, notes: ["D4"] },
+      { beats: 2, notes: ["G4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 2, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 1, notes: ["C4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 4, notes: ["E4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["E4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 1, notes: ["G4"] },
+      { beats: 1, notes: ["F4"] },
+      { beats: 1, notes: ["D4"] },
+      { beats: 1, notes: ["C4"] },
+      { beats: 4, notes: ["C4"] },
+    ]),
+  },
+];
 
 interface DemoSongsProps {
-  onPlaySong: (
-    notes: Array<{ note: string | string[]; duration: number }>,
-  ) => void;
-  isPlaying?: boolean;
+  onPlaySong: (song: DemoSong) => void;
+  onPauseSong: () => void;
+  onResumeSong: () => void;
+  onStopSong: () => void;
+  playingSongName?: string;
+  isPaused?: boolean;
 }
 
 export default function DemoSongs({
   onPlaySong,
-  isPlaying = false,
+  onPauseSong,
+  onResumeSong,
+  onStopSong,
+  playingSongName = "",
+  isPaused = false,
 }: DemoSongsProps) {
-  const [selectedSong, setSelectedSong] = useState<string | null>(null);
-
-  const handlePlaySong = (songKey: string) => {
-    const song = DEMO_SONGS[songKey];
-    if (song && song.notes.length > 0) {
-      setSelectedSong(songKey);
-      onPlaySong(song.notes);
-    }
-  };
-
+  const { language } = useLanguage();
+  const isChinese = language === "zh";
   return (
-    <div className="mt-8 bg-gradient-to-r from-purple-100 to-pink-100 p-6 rounded-lg border-2 border-purple-300">
-      <p className="font-bold text-purple-900 mb-4 text-lg">🎹 名曲演奏库</p>
-      <p className="mb-4 text-sm text-purple-700">
-        当前曲库使用完整主旋律版本，并自动补了左手伴奏，支持左右手同时演奏。
-      </p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {Object.entries(DEMO_SONGS).map(([key, song]) => (
-          <button
-            key={key}
-            onClick={() => handlePlaySong(key)}
-            disabled={
-              song.notes.length === 0 || (isPlaying && selectedSong !== key)
-            }
-            className={`px-4 py-3 rounded-lg font-semibold transition-all transform ${
-              selectedSong === key && isPlaying
-                ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white scale-105 shadow-lg"
-                : song.notes.length === 0
-                  ? "bg-gray-200 text-gray-500 cursor-not-allowed border-2 border-dashed border-gray-300"
-                  : isPlaying
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-white text-purple-900 border-2 border-purple-400 hover:bg-purple-100 hover:scale-105 active:scale-95 shadow-md"
-            }`}
-          >
-            {song.name}
-            {song.notes.length === 0 ? " · 待导入" : ""}
-          </button>
-        ))}
-      </div>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {songs.map((song) => {
+        const isCurrent = playingSongName === song.name;
+        const isOtherPlaying = !!playingSongName && !isCurrent;
+        return (
+          <div key={song.name} className="card p-5">
+            <div className="text-xs font-bold uppercase tracking-wider text-violet-500">
+              {isChinese ? (song.difficulty === "Easy" ? "简单" : "中等") : song.difficulty}
+            </div>
+            <h3 className="mt-2 font-bold">{song.name}</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              {isChinese ? `时间轴演奏 · ${song.events.length} 个乐句事件 · ${song.bpm} BPM` : `Timeline · ${song.events.length} events · ${song.bpm} BPM`}
+            </p>
+            <div className="mt-5 grid grid-cols-[1fr_auto] gap-3">
+              <button
+                className="btn btn-primary w-full"
+                disabled={isOtherPlaying}
+                onClick={() =>
+                  isCurrent
+                    ? isPaused
+                      ? onResumeSong()
+                      : onPauseSong()
+                    : onPlaySong(song)
+                }
+              >
+                {isCurrent ? (isPaused ? (isChinese ? "▶ 继续" : "▶ Resume") : (isChinese ? "Ⅱ 暂停" : "Ⅱ Pause")) : (isChinese ? "▶ 播放" : "▶ Play")}
+              </button>
+              <button
+                className="min-h-11 min-w-11 rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+                disabled={!isCurrent}
+                onClick={onStopSong}
+                title={isChinese ? "停止" : "Stop"}
+              >
+                ■
+              </button>
+            </div>
+            {isCurrent && (
+              <div className="mt-2 text-center text-xs font-semibold text-violet-600">
+                {isPaused ? (isChinese ? "已暂停" : "Paused") : (isChinese ? "播放中…" : "Playing…")}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

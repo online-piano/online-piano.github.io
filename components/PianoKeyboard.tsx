@@ -1,240 +1,284 @@
-﻿'use client';
+"use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLanguage } from "@/components/LanguageProvider";
 
-interface PianoKeyboardProps {
+interface Props {
   piano: any;
   octave: number;
   notes: Record<string, number>;
   externalPressedKeys?: Set<string>;
-  keyboardSize?: 'compact' | 'full';
+  keyboardSize?: "compact" | "full";
 }
 
-export default function PianoKeyboard({ piano, octave, notes, externalPressedKeys = new Set(), keyboardSize = 'full' }: PianoKeyboardProps) {
-  const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
-  const allPressedKeys = new Set([...pressedKeys, ...externalPressedKeys]);
+const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const midiOf = (n: string) => {
+  const m = n.match(/^([A-G]#?)(\d+)$/)!;
+  return names.indexOf(m[1]) + (Number(m[2]) + 1) * 12;
+};
+const defaultMap: Record<string, string> = {
+  KeyZ: "C4",
+  KeyX: "D4",
+  KeyC: "E4",
+  KeyV: "F4",
+  KeyB: "G4",
+  KeyN: "A4",
+  KeyM: "B4",
+  Comma: "C5",
+  Period: "D5",
+  Slash: "E5",
+  KeyS: "C#4",
+  KeyD: "D#4",
+  KeyG: "F#4",
+  KeyH: "G#4",
+  KeyJ: "A#4",
+  KeyL: "C#5",
+  Digit5: "F#5",
+  Digit6: "G#5",
+  Digit7: "A#5",
+};
 
-  const octaveWhiteShortcuts: Record<number, string[]> = {
-    [octave]:     ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
-    [octave + 1]: [',', '.', '/', 'R', 'T', 'Y', 'U'],
-    [octave + 2]: ['I', 'O', 'P', '[', ']', ';', '\\'],
-  };
-  const octaveBlackShortcuts: Record<number, string[]> = {
-    [octave]:     ['S', 'D', '', 'G', 'H', 'J', ''],
-    [octave + 1]: ['L', '`', '', '6', '7', '8', ''],
-    [octave + 2]: ['9', '0', '', '-', '=', '2', ''],
-  };
+export default function PianoKeyboard({
+  piano,
+  octave,
+  notes,
+  externalPressedKeys = new Set(),
+  keyboardSize = "full",
+}: Props) {
+  const { language } = useLanguage();
+  const isChinese = language === "zh";
+  const [pressed, setPressed] = useState<Set<string>>(new Set());
+  const [edit, setEdit] = useState(false);
+  const [target, setTarget] = useState<string | null>(null);
+  const [map, setMap] = useState<Record<string, string>>(defaultMap);
+  const pressedNotesRef = useRef(new Set<string>());
+  const pointerHandles = useRef(new Map<string, { stop: () => void }>());
+  useEffect(() => {
+    try {
+      const x = localStorage.getItem("online-piano-keymap");
+      if (x) setMap(JSON.parse(x));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    document.body.dataset.pianoMapping = edit ? "1" : "0";
+    return () => {
+      document.body.dataset.pianoMapping = "0";
+    };
+  }, [edit]);
+  const octs =
+    keyboardSize === "full"
+      ? Array.from({ length: 9 }, (_, i) => i)
+      : [octave, octave + 1, octave + 2];
+  const fullNotes = useMemo(() => {
+    if (keyboardSize === "full") {
+      return Array.from({ length: 88 }, (_, i) => i + 21).map(
+        (m) => names[m % 12] + (Math.floor(m / 12) - 1),
+      );
+    }
+    return octs.flatMap((o) => names.map((n) => `${n}${o}`));
+  }, [keyboardSize, octave]);
+  const white = fullNotes.filter((n) => !n.includes("#"));
+  const isActive = (n: string) =>
+    pressed.has(n) ||
+    externalPressedKeys.has(n) ||
+    piano.activeNotes?.includes(midiOf(n));
+  const mapped = (n: string) =>
+    Object.entries(map)
+      .find(([, v]) => v === n)?.[0]
+      ?.replace(/^(Key|Digit)/, "") || "";
 
-  const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-  const blackKeyAfterWhiteIndex = [0, 1, 3, 4, 5];
-
-  const whiteKeyWidth = 46;
-  const whiteKeyHeight = 180;
-  const blackKeyWidth = 28;
-  const blackKeyHeight = 115;
-  const containerPadding = 16;
-  
-  // 根据 keyboardSize 决定显示的八度数量和起始八度
-  const octavesCount = keyboardSize === 'compact' ? 3 : 5;
-  const startOctave = keyboardSize === 'compact' ? octave : 2;  // 88键从C2开始
-  const octaves = Array.from({ length: octavesCount }, (_, i) => startOctave + i);
-  const totalWhiteKeys = octaves.length * noteNames.length;
-
-  const pressKey = useCallback((noteName: string, freq: number) => {
-    setPressedKeys(prev => new Set(prev).add(noteName));
-    piano.playNote(noteName, freq);
-  }, [piano]);
-
-  const releaseKey = useCallback((noteName: string) => {
-    setPressedKeys(prev => {
-      const next = new Set(prev);
-      next.delete(noteName);
-      return next;
+  const press = (n: string) => {
+    if (edit) {
+      setTarget(n);
+      return;
+    }
+    pressedNotesRef.current.add(n);
+    setPressed((p) => {
+      const q = new Set(p);
+      q.add(n);
+      return q;
     });
-    piano.stopNote(noteName);
-  }, [piano]);
-
-  const handlePointerDown = (noteName: string, freq: number, e: React.PointerEvent) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    void piano.playNoteInstance(n).then((handle: { stop: () => void }) => {
+      if (!pressedNotesRef.current.has(n)) handle.stop();
+      else pointerHandles.current.set(n, handle);
+    });
+  };
+  const release = (n: string) => {
+    pressedNotesRef.current.delete(n);
+    setPressed((p) => {
+      const q = new Set(p);
+      q.delete(n);
+      return q;
+    });
+    pointerHandles.current.get(n)?.stop();
+    pointerHandles.current.delete(n);
+  };
+  const releaseAllPointerNotes = () => {
+    pointerHandles.current.forEach((handle) => handle.stop());
+    pointerHandles.current.clear();
+    pressedNotesRef.current.clear();
+    setPressed(new Set());
+  };
+  useEffect(() => () => releaseAllPointerNotes(), []);
+  const bind = (e: React.KeyboardEvent) => {
+    if (!target) return;
     e.preventDefault();
-    pressKey(noteName, freq);
-    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const next = { ...map };
+    for (const [k, v] of Object.entries(next)) if (v === target) delete next[k];
+    next[e.code] = target;
+    setMap(next);
+    localStorage.setItem("online-piano-keymap", JSON.stringify(next));
+    setTarget(null);
   };
 
-  const handlePointerUp = (noteName: string, e: React.PointerEvent) => {
-    e.preventDefault();
-    releaseKey(noteName);
-  };
-
-  const handlePointerCancel = (noteName: string, e: React.PointerEvent) => {
-    e.preventDefault();
-    releaseKey(noteName);
-  };
-
+  const keyW = keyboardSize === "full" ? 46 : 58,
+    keyH = 180;
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: keyboardSize === 'compact' ? 'center' : 'flex-start',
-      marginBottom: '30px',
-      overflowX: 'auto',
-      paddingTop: '20px',
-      paddingBottom: '20px',
-      width: '100%',
-    }}>
-      <div style={{
-        position: 'relative',
-        width: totalWhiteKeys * whiteKeyWidth + containerPadding * 2,
-        height: whiteKeyHeight + containerPadding * 2,
-        background: '#2a2a2a',
-        padding: `${containerPadding}px`,
-        marginLeft: '10px',
-        marginRight: '10px',
-        borderRadius: '12px',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-        flexShrink: 0,
-        touchAction: 'none',
-      }}>
-        <div style={{ display: 'flex', position: 'relative', zIndex: 1 }}>
-          {octaves.map((oct) =>
-            noteNames.map((noteName, noteIdx) => {
-              const fullNoteName = `${noteName}${oct}`;
-              const freq = notes[fullNoteName];
-              const shortcut = octaveWhiteShortcuts[oct]?.[noteIdx] ?? '';
-              const isFirstOfOctave = noteIdx === 0;
-              const isPressed = allPressedKeys.has(fullNoteName);
-
+    <div
+      className="space-y-4 select-none"
+      onKeyDown={bind}
+      tabIndex={edit ? 0 : -1}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <div className="mb-3 flex flex-wrap justify-center gap-4">
+        <button
+          onClick={() => setEdit((v) => !v)}
+          className={`min-h-11 rounded-lg border-2 px-5 py-3 font-semibold transition ${edit ? "border-purple-600 bg-purple-600 text-white" : "border-purple-500 text-purple-600 hover:bg-purple-50"}`}
+        >
+          {edit
+            ? isChinese
+              ? "完成键盘设置"
+              : "Done"
+            : isChinese
+              ? "键盘设置"
+              : "Keyboard settings"}
+        </button>
+        {edit && (
+          <button
+            onClick={() => {
+              setMap(defaultMap);
+              localStorage.setItem(
+                "online-piano-keymap",
+                JSON.stringify(defaultMap),
+              );
+              setTarget(null);
+            }}
+            className="min-h-11 rounded-lg border-2 border-gray-300 px-5 py-3 text-gray-600"
+          >
+            {isChinese ? "恢复默认" : "Reset"}
+          </button>
+        )}
+      </div>
+      {edit && (
+        <div className="text-center text-sm text-purple-700 bg-purple-50 rounded-lg p-3">
+          {isChinese
+            ? "先点击钢琴键，再按电脑键盘上的按键。"
+            : "Click a piano key, then press a computer key."}
+          {target
+            ? isChinese
+              ? ` 当前等待：${target}`
+              : ` Waiting for: ${target}`
+            : ""}
+        </div>
+      )}
+      <div
+        className="overflow-x-auto overscroll-x-contain pb-3"
+        onKeyDown={bind}
+      >
+        <div
+          className="relative mx-auto rounded-xl bg-[#2a2a2a] p-4 shadow-[0_8px_30px_rgba(0,0,0,.5)]"
+          style={{
+            width: Math.max(
+              white.length * keyW + 32,
+              keyboardSize === "compact" ? 450 : 900,
+            ),
+            height: 228,
+          }}
+        >
+          <div className="absolute left-4 top-4 flex" style={{ zIndex: 1 }}>
+            {fullNotes
+              .filter((n) => !n.includes("#"))
+              .map((n) => {
+                const active = isActive(n);
+                const m = mapped(n);
+                return (
+                  <button
+                    key={n}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.setPointerCapture?.(e.pointerId);
+                      press(n);
+                    }}
+                    onPointerUp={(e) => {
+                      if (!edit) release(n);
+                    }}
+                    onPointerCancel={() => !edit && release(n)}
+                    onPointerLeave={(e) => {
+                      if (
+                        e.pointerType === "mouse" &&
+                        !e.currentTarget.hasPointerCapture?.(e.pointerId) &&
+                        !edit
+                      )
+                        release(n);
+                    }}
+                    className={`relative shrink-0 rounded-b-md border ${active ? "bg-blue-200 shadow-inner" : "bg-gradient-to-b from-white to-gray-100"} border-gray-400`}
+                    style={{ width: keyW, height: keyH }}
+                  >
+                    <span className="absolute bottom-1 left-0 right-0 text-[10px] font-bold text-gray-600">
+                      {n.startsWith("C") ? n : n[0]}
+                    </span>
+                    {m && (
+                      <span className="absolute bottom-5 left-0 right-0 text-[9px] text-purple-500">
+                        {m}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+          </div>
+          <div
+            className="absolute left-4 top-4 pointer-events-none"
+            style={{ zIndex: 3 }}
+          >
+            {fullNotes.map((n, i) => {
+              if (!n.includes("#")) return null;
+              const idx = white.findIndex((w) => midiOf(w) > midiOf(n));
+              const left = (idx < 0 ? white.length : idx) * keyW - keyW / 2;
+              const active = isActive(n);
+              const m = mapped(n);
               return (
                 <button
-                  key={`w-${fullNoteName}`}
-                  onPointerDown={(e) => handlePointerDown(fullNoteName, freq, e)}
-                  onPointerUp={(e) => handlePointerUp(fullNoteName, e)}
-                  onPointerCancel={(e) => handlePointerCancel(fullNoteName, e)}
-                  onPointerLeave={(e) => {
-                    if (e.pointerType === 'mouse') {
-                      releaseKey(fullNoteName);
-                    }
+                  key={n}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.currentTarget.setPointerCapture?.(e.pointerId);
+                    press(n);
                   }}
-                  onContextMenu={(e) => e.preventDefault()}
-                  onDragStart={(e) => e.preventDefault()}
-                  style={{
-                    width: whiteKeyWidth,
-                    height: whiteKeyHeight,
-                    background: isPressed
-                      ? 'linear-gradient(to bottom, #c8d8ff 0%, #a0b8f0 100%)'
-                      : 'linear-gradient(to bottom, #ffffff 0%, #f0f0f0 100%)',
-                    border: `1px solid ${isFirstOfOctave ? '#888' : '#bbb'}`,
-                    borderLeft: isFirstOfOctave ? '2px solid #666' : '1px solid #bbb',
-                    borderRadius: '0 0 6px 6px',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    WebkitTouchCallout: 'none',
-                    WebkitTapHighlightColor: 'transparent',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'flex-end',
-                    alignItems: 'center',
-                    paddingBottom: '6px',
-                    flex: `0 0 ${whiteKeyWidth}px`,
-                    boxShadow: isPressed
-                      ? 'inset 0 3px 8px rgba(0,0,100,0.25)'
-                      : 'inset 0 -3px 5px rgba(0,0,0,0.08)',
-                    transform: isPressed ? 'translateY(2px)' : 'translateY(0)',
-                    transition: 'background 0.05s, transform 0.05s, box-shadow 0.05s',
+                  onPointerUp={(e) => {
+                    e.stopPropagation();
+                    if (!edit) release(n);
                   }}
+                  onPointerCancel={(e) => {
+                    e.stopPropagation();
+                    if (!edit) release(n);
+                  }}
+                  className={`absolute pointer-events-auto rounded-b-md border border-black ${active ? "bg-gray-500" : "bg-gradient-to-b from-gray-800 to-black"}`}
+                  style={{ left, width: keyW * 0.6, height: 115 }}
                 >
-                  {/* 音名：C键显示完整名称（如 C4），其他区只显字母 */}
-                  <div style={{ color: isPressed ? '#3050a0' : '#555', fontSize: noteName === 'C' ? '12px' : '11px', fontWeight: 'bold', marginBottom: shortcut ? '2px' : '0' }}>
-                    {noteName === 'C' ? `C${oct}` : noteName}
-                  </div>
-                  {shortcut && (
-                    <div style={{ color: isPressed ? '#6070c0' : '#bbb', fontSize: '10px' }}>
-                      {shortcut}
-                    </div>
+                  <span className="absolute bottom-1 left-0 right-0 text-[8px] text-gray-300">
+                    {n}
+                  </span>
+                  {m && (
+                    <span className="absolute bottom-4 left-0 right-0 text-[8px] text-gray-400">
+                      {m}
+                    </span>
                   )}
                 </button>
               );
-            })
-          )}
+            })}
+          </div>
         </div>
-
-        {octaves.map((oct, octIdx) =>
-          blackKeyAfterWhiteIndex.map((whiteIdx) => {
-            const whiteNote = noteNames[whiteIdx];
-            const sharpNames: Record<string, string> = { C: 'C#', D: 'D#', F: 'F#', G: 'G#', A: 'A#' };
-            const sharpName = sharpNames[whiteNote];
-            const fullNoteName = `${sharpName}${oct}`;
-            const freq = notes[fullNoteName];
-            const globalWhiteIdx = octIdx * noteNames.length + whiteIdx;
-            const leftPosition = containerPadding + (globalWhiteIdx + 1) * whiteKeyWidth - blackKeyWidth / 2;
-            const shortcut = octaveBlackShortcuts[oct]?.[whiteIdx] ?? '';
-            const isPressed = allPressedKeys.has(fullNoteName);
-
-            return (
-              <div
-                key={`b-${fullNoteName}`}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  handlePointerDown(fullNoteName, freq, e);
-                }}
-                onPointerUp={(e) => {
-                  e.stopPropagation();
-                  handlePointerUp(fullNoteName, e);
-                }}
-                onPointerCancel={(e) => {
-                  e.stopPropagation();
-                  handlePointerCancel(fullNoteName, e);
-                }}
-                onPointerLeave={(e) => {
-                  if (e.pointerType === 'mouse') {
-                    releaseKey(fullNoteName);
-                  }
-                }}
-                onContextMenu={(e) => e.preventDefault()}
-                onDragStart={(e) => e.preventDefault()}
-                style={{
-                  position: 'absolute',
-                  top: containerPadding,
-                  left: leftPosition,
-                  width: blackKeyWidth,
-                  height: blackKeyHeight,
-                  background: isPressed
-                    ? 'linear-gradient(to bottom, #555 0%, #222 100%)'
-                    : 'linear-gradient(to bottom, #222 0%, #000 100%)',
-                  border: '1px solid #000',
-                  borderRadius: '0 0 5px 5px',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  WebkitTouchCallout: 'none',
-                  WebkitTapHighlightColor: 'transparent',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'flex-end',
-                  paddingBottom: '6px',
-                  zIndex: 10,
-                  boxShadow: isPressed
-                    ? 'inset 0 3px 6px rgba(0,0,0,0.8)'
-                    : '2px 4px 8px rgba(0,0,0,0.6)',
-                  transform: isPressed ? 'translateY(2px)' : 'translateY(0)',
-                  transition: 'background 0.05s, transform 0.05s, box-shadow 0.05s',
-                }}
-              >
-                  {/* 黑键显示升号名称 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
-                    <div style={{ color: isPressed ? '#ddd' : '#999', fontSize: '9px', fontWeight: 'bold', lineHeight: 1 }}>
-                      {sharpName}
-                    </div>
-                    {shortcut && (
-                      <div style={{ color: isPressed ? '#aaa' : '#666', fontSize: '9px', lineHeight: 1 }}>
-                        {shortcut}
-                      </div>
-                    )}
-                  </div>
-                </div>
-            );
-          })
-        )}
       </div>
     </div>
   );

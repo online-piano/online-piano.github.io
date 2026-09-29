@@ -1,26 +1,156 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f7fb;
+  --foreground: #171722;
+  --muted: #6b6b7b;
+  --card: rgba(255, 255, 255, 0.88);
+  --border: #e6e5ef;
+  --accent: #6d5dfc;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
-
 body {
-  background: var(--background);
+  margin: 0;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      rgba(109, 93, 252, 0.12),
+      transparent 30rem
+    ),
+    radial-gradient(
+      circle at 90% 15%,
+      rgba(74, 144, 226, 0.1),
+      transparent 28rem
+    ),
+    var(--background);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+.piano-page {
+  background: linear-gradient(135deg, #e8e4ff 0%, #f8f5ff 48%, #dff4f1 100%);
+}
+.piano-shell {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px);
+}
+.piano-header {
+  border-bottom: 1px solid rgba(23, 23, 34, 0.08);
+  padding-bottom: 24px;
+}
+.eyebrow {
+  color: #6d5dfc;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.nav-link {
+  border-radius: 10px;
+  padding: 10px 13px;
+  transition: 0.15s ease;
+}
+.nav-link:hover {
+  background: #f0edff;
+  color: #5b4be8;
+}
+.language-toggle {
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #5b4be8;
+  font-size: 12px;
+  font-weight: 800;
+}
+.language-toggle:hover {
+  background: #f0edff;
+}
+.control-deck {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 12px;
+  background: rgba(248, 248, 252, 0.8);
+}
+.control-group {
+  min-height: 68px;
+  border-radius: 13px;
+  padding: 12px 18px;
+  background: white;
+}
+.instrument-controls {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 24px;
+}
+.keyboard-stage {
+  border-radius: 18px;
+  background: #fbfbfd;
+  padding: 20px 16px 8px;
+}
+button {
+  cursor: pointer;
+}
+a {
+  text-decoration: none;
+  color: inherit;
+}
+.container {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+}
+.card {
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 22px;
+  box-shadow: 0 10px 35px rgba(25, 25, 45, 0.06);
+}
+.btn {
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 12px 18px;
+  font-weight: 700;
+  transition: 0.15s ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: #c9c6e8;
+}
+.btn-primary {
+  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.key-highlight {
+  background: linear-gradient(180deg, #8b7fff, #5b4be8) !important;
+  color: white !important;
+  box-shadow:
+    0 0 0 3px rgba(109, 93, 252, 0.25),
+    0 8px 20px rgba(109, 93, 252, 0.28);
+}
+button,
+input {
+  touch-action: manipulation;
+}
+@media (max-width: 700px) {
+  .container {
+    width: min(100% - 20px, 1180px);
+  }
+  .card {
+    border-radius: 16px;
+  }
+  .control-group {
+    justify-content: space-between;
+    padding-inline: 14px;
+  }
+  .keyboard-stage {
+    padding-inline: 10px;
+  }
 }
