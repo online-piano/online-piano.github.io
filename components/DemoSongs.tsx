@@ -311,11 +311,17 @@ export default function DemoSongs({
         return (
           <div key={song.name} className="card p-5">
             <div className="text-xs font-bold uppercase tracking-wider text-violet-500">
-              {isChinese ? (song.difficulty === "Easy" ? "简单" : "中等") : song.difficulty}
+              {isChinese
+                ? song.difficulty === "Easy"
+                  ? "简单"
+                  : "中等"
+                : song.difficulty}
             </div>
             <h3 className="mt-2 font-bold">{song.name}</h3>
             <p className="mt-1 text-xs text-gray-500">
-              {isChinese ? `时间轴演奏 · ${song.events.length} 个乐句事件 · ${song.bpm} BPM` : `Timeline · ${song.events.length} events · ${song.bpm} BPM`}
+              {isChinese
+                ? `时间轴演奏 · ${song.events.length} 个乐句事件 · ${song.bpm} BPM`
+                : `Timeline · ${song.events.length} events · ${song.bpm} BPM`}
             </p>
             <div className="mt-5 grid grid-cols-[1fr_auto] gap-3">
               <button
@@ -329,7 +335,17 @@ export default function DemoSongs({
                     : onPlaySong(song)
                 }
               >
-                {isCurrent ? (isPaused ? (isChinese ? "▶ 继续" : "▶ Resume") : (isChinese ? "Ⅱ 暂停" : "Ⅱ Pause")) : (isChinese ? "▶ 播放" : "▶ Play")}
+                {isCurrent
+                  ? isPaused
+                    ? isChinese
+                      ? "▶ 继续"
+                      : "▶ Resume"
+                    : isChinese
+                      ? "Ⅱ 暂停"
+                      : "Ⅱ Pause"
+                  : isChinese
+                    ? "▶ 播放"
+                    : "▶ Play"}
               </button>
               <button
                 className="min-h-11 min-w-11 rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
@@ -342,7 +358,13 @@ export default function DemoSongs({
             </div>
             {isCurrent && (
               <div className="mt-2 text-center text-xs font-semibold text-violet-600">
-                {isPaused ? (isChinese ? "已暂停" : "Paused") : (isChinese ? "播放中…" : "Playing…")}
+                {isPaused
+                  ? isChinese
+                    ? "已暂停"
+                    : "Paused"
+                  : isChinese
+                    ? "播放中…"
+                    : "Playing…"}
               </div>
             )}
           </div>
